@@ -111,8 +111,8 @@ function forward_simulation_loss(x0, p, odefun, D, t0, δt, S, γ = 0.0)
         end
 
         # Detect if we are going unstable
-        any(abs.(x) .> 1e3) && (println("Breaking early: $(i), $(data_loss)"); data_loss += 1e2; return data_loss)#(println("Breaking early: $(data_loss)"); data_loss += 1e8; return data_loss)
-        any(isnan.(x)) && (println("Breaking early: $(i), $(data_loss)"); data_loss += 1e2; return data_loss) #(println("Breaking early: $(data_loss)"); data_loss += 1e8; return data_loss)
+        any(abs.(x) .> 1e3) && (println("Breaking early: $(i), $(data_loss)"); data_loss += 1e5; return data_loss)#(println("Breaking early: $(data_loss)"); data_loss += 1e8; return data_loss)
+        any(isnan.(x)) && (println("Breaking early: $(i), $(data_loss)"); data_loss += 1e5; return data_loss) #(println("Breaking early: $(data_loss)"); data_loss += 1e8; return data_loss)
 
         # Data loss for current time point
         data_loss += abs2(x[1] - data[1 + 2i]) + abs2(x[2] - data[2 + 2i])

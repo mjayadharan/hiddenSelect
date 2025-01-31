@@ -224,7 +224,7 @@ grad_fs_loss!(g, x) = ReverseDiff.gradient!((view(g, 1:2), view(g, 3:length(g)))
 
 # # Gradient Free optimizatino for better initial guess
 # Define the number of seeds
-num_runs = 100
+num_runs = 30
 
 # Pre-allocate storage for results
 results = Vector{Tuple{Float64, Vector{Float64}}}(undef, num_runs)
@@ -262,16 +262,18 @@ df = DataFrame(Cost = [r[1] for r in results],
 
 ##
 # Forward simulation optimization
-options = Optim.Options(show_trace = true, iterations = 2500, show_every = 1)
-# Use parameters from DA optimization for the initial conditions of the FS optimization
-# x0 = [data[1:2]; optres.minimizer[end - Np + 1:end]]
-x0 = [data[1:2]; 0.01*zeros(length(fhn_p))]
-# x0 = [data[1:2]; fhn_p + 0.05*randn(length(fhn_p))]
+# options = Optim.Options(show_trace = true, iterations = 2500, show_every = 1)
+# # Use parameters from DA optimization for the initial conditions of the FS optimization
+# # x0 = [data[1:2]; optres.minimizer[end - Np + 1:end]]
+# x0 = [data[1:2]; 0.01*zeros(length(fhn_p))]
+# # x0 = [data[1:2]; fhn_p + 0.05*randn(length(fhn_p))]
 
 
-# optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0, BFGS(), options)
-optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0, NelderMead(), options)
-x0_2 = [data[1:2]; optres2.minimizer[end-Np + 1:end]]
+# # optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0, BFGS(), options)
+# optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0, NelderMead(), options)
+# x0_2 = [data[1:2]; optres2.minimizer[end-Np + 1:end]]
+x0_2 = [data[1:2]; df.Minimizer[argmin(df.Cost)][end-Np + 1:end]]
+
 
 optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0_2, BFGS(), options)
 
@@ -285,7 +287,7 @@ fig = Figure(size = (980, 480))
 # Plotting the GradFree simulation results
 T = ts[end] 
 N = Int(T / δt)
-_, ys = integrate(odefun, x0_2[1:2], x0_2[3:end], t0, N, δt, cache)
+_, ys = integrate(odefun, df.Minimizer[argmin(df.Cost)][1:2], df.Minimizer[argmin(df.Cost)][3:end], t0, N, δt, cache)
 ax11 = Axis(fig[1, 1])
 scatter!(ax11, ts, data[1:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
 lines!(ax11, 0:δt:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
@@ -306,7 +308,7 @@ ax21.xticks = 0:25:75
 
 # plot the GradFree coefficient results
 ax31 = Axis(fig[3, 1])
-barplot!(ax31, 1:Np, x0_2[end-Np + 1:end], color = Makie.Colors.RGBA.(cvec, 0.25), strokecolor = plotGray, strokewidth = 1)
+barplot!(ax31, 1:Np, df.Minimizer[argmin(df.Cost)][end-Np + 1:end], color = Makie.Colors.RGBA.(cvec, 0.25), strokecolor = plotGray, strokewidth = 1)
 scatter!(ax31, 1:Np, fhn_p, color = cvec)
 ax31.xticks = (1:Np, trmstr)
 ax31.xticklabelrotation = π/4
