@@ -4,6 +4,7 @@ using CairoMakie
 using LinearAlgebra, Statistics
 using ReverseDiff, Optim
 using Random
+using Base.Threads, DataFrames
 # using Plots
 plotGray = Makie.Colors.colorant"#4D4D4D"
 set_theme!(Theme(fontsize = 16, figure_padding = 10, textcolor = plotGray, fonts = Attributes(:regular => "Helvetica Neue Light"), size = (480, 480), Axis = (xgridvisible = false, ygridvisible = false, ytickalign = 1, xtickalign = 1, yticksmirrored = true, xticksmirrored = true, bottomspinecolor = plotGray, topspinecolor = plotGray, leftspinecolor = plotGray, rightsplinecolor = plotGray, xtickcolor = plotGray, ytickcolor = plotGray, spinewidth = 1.0)))
@@ -215,26 +216,64 @@ grad_da_loss!(g, x) = ReverseDiff.gradient!((view(g, 1:length(g) - Np), view(g, 
 fs_loss(x) = fs_loss(view(x, 1:2), view(x, 3:length(x)))
 grad_fs_loss!(g, x) = ReverseDiff.gradient!((view(g, 1:2), view(g, 3:length(g))), compiled_fs_loss_tape, (x[1:2], x[3:length(x)]))
 
-# # Optimizations 
-# Data assimilation optimization 
-options = Optim.Options(show_trace = true, iterations = 5000, show_every = 10)
-x0 = [zeros(Nx); 0.01*zeros(length(fhn_p))]
-optres = Optim.optimize(da_loss, grad_da_loss!, x0, BFGS(), options)
+# # # Optimizations 
+# # Data assimilation optimization 
+# options = Optim.Options(show_trace = true, iterations = 5000, show_every = 10)
+# x0 = [zeros(Nx); 0.01*zeros(length(fhn_p))]
+# optres = Optim.optimize(da_loss, grad_da_loss!, x0, BFGS(), options)
+
+# # Gradient Free optimizatino for better initial guess
+# Define the number of seeds
+num_runs = 100
+
+# Pre-allocate storage for results
+results = Vector{Tuple{Float64, Vector{Float64}}}(undef, num_runs)
+
+# Run optimization in parallel
+@threads for i in 1:num_runs
+# for i in 1:num_runs
+
+    # seed = rand(1:10_000_000)  # Generate a large random seed
+    Random.seed!(i)  # Set seed for reproducibility
+
+    # Define initial starting point
+    # x0 = [data[1:2]; 0.01 * randn(length(fhn_p))]  # Small random perturbations
+    # Define initial starting point with uniform sampling within a hypercube
+    lower_bound = -.000001
+    upper_bound = .000001
+    initial_guess = lower_bound .+ (upper_bound - lower_bound) .* rand(length(fhn_p))
+    x0 = [data[1:2]; initial_guess]
+
+    # Optimization options
+    options = Optim.Options(show_trace = false, iterations = 2500)
+
+    # # Run optimization
+    optres = Optim.optimize(fs_loss, grad_fs_loss!, x0, NelderMead(), options)
+
+    # # Store seed, cost function value, and minimizer
+    results[i] = (Optim.minimum(optres), Optim.minimizer(optres))
+    println("finished optimization run $i")
+end
+
+# Save results to a file (optional)
+# using DataFrames
+df = DataFrame(Cost = [r[1] for r in results], 
+               Minimizer = [r[2] for r in results])
 
 ##
 # Forward simulation optimization
 options = Optim.Options(show_trace = true, iterations = 2500, show_every = 1)
 # Use parameters from DA optimization for the initial conditions of the FS optimization
-x0 = [data[1:2]; optres.minimizer[end - Np + 1:end]]
-# x0 = [data[1:2]; 0.01*zeros(length(fhn_p))]
+# x0 = [data[1:2]; optres.minimizer[end - Np + 1:end]]
+x0 = [data[1:2]; 0.01*zeros(length(fhn_p))]
 # x0 = [data[1:2]; fhn_p + 0.05*randn(length(fhn_p))]
 
 
-optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0, BFGS(), options)
-# optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0, NelderMead(), options)
-# x0_2 = [data[1:2]; optres2.minimizer[end-Np + 1:end]]
+# optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0, BFGS(), options)
+optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0, NelderMead(), options)
+x0_2 = [data[1:2]; optres2.minimizer[end-Np + 1:end]]
 
-# optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0_2, BFGS(), options)
+optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0_2, BFGS(), options)
 
 
 ## Plot the results 
@@ -242,10 +281,11 @@ trmstr = repeat(["1", "v", "w", "v²", "vw", "w²", "v³", "v²w", "vw²", "w³"
 cvec = [repeat([Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 1.0), ], 10); repeat([Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 1.0), ], 10)]
 
 fig = Figure(size = (980, 480))
-# Plot the DA simulation results
+
+# Plotting the GradFree simulation results
 T = ts[end] 
 N = Int(T / δt)
-_, ys = integrate(odefun, optres.minimizer[1:2], optres.minimizer[end-Np + 1:end], t0, N, δt, cache)
+_, ys = integrate(odefun, x0_2[1:2], x0_2[3:end], t0, N, δt, cache)
 ax11 = Axis(fig[1, 1])
 scatter!(ax11, ts, data[1:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
 lines!(ax11, 0:δt:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
@@ -264,15 +304,47 @@ ax21.ylabel = "w(t)"
 ax11.ylabel = "v(t)"
 ax21.xticks = 0:25:75
 
-# plot the DA coefficient results
+# plot the GradFree coefficient results
 ax31 = Axis(fig[3, 1])
-barplot!(ax31, 1:Np, optres.minimizer[end-Np + 1:end], color = Makie.Colors.RGBA.(cvec, 0.25), strokecolor = plotGray, strokewidth = 1)
+barplot!(ax31, 1:Np, x0_2[end-Np + 1:end], color = Makie.Colors.RGBA.(cvec, 0.25), strokecolor = plotGray, strokewidth = 1)
 scatter!(ax31, 1:Np, fhn_p, color = cvec)
 ax31.xticks = (1:Np, trmstr)
 ax31.xticklabelrotation = π/4
 hlines!(ax31, 0.0, color = plotGray)
 ylims!(ax31, -1.1, 1.1)
 xlims!(ax31, 0.25, Np + 0.75)
+
+# # Plot the DA simulation results
+# T = ts[end] 
+# N = Int(T / δt)
+# _, ys = integrate(odefun, optres.minimizer[1:2], optres.minimizer[end-Np + 1:end], t0, N, δt, cache)
+# ax11 = Axis(fig[1, 1])
+# scatter!(ax11, ts, data[1:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
+# lines!(ax11, 0:δt:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
+# lines!(ax11, tsall, alldata[1:2:end], color = plotGray, linestyle = :dash)
+# ylims!(ax11, -3, 3)
+# xlims!(ax11, 0.0, ts[end])
+# hidexdecorations!(ax11, ticks = false)
+# ax21 = Axis(fig[2, 1])
+# scatter!(ax21, ts, data[2:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 0.25))
+# lines!(ax21, 0:δt:T, getindex.(ys, 2), color = Makie.ColorSchemes.Signac[11])
+# lines!(ax21, tsall, alldata[2:2:end], color = plotGray, linestyle = :dash)
+# ylims!(ax21, -0.6, 1.65)
+# xlims!(ax21, 0.0, ts[end])
+# ax21.xlabel = "t"
+# ax21.ylabel = "w(t)"
+# ax11.ylabel = "v(t)"
+# ax21.xticks = 0:25:75
+
+# # plot the DA coefficient results
+# ax31 = Axis(fig[3, 1])
+# barplot!(ax31, 1:Np, optres.minimizer[end-Np + 1:end], color = Makie.Colors.RGBA.(cvec, 0.25), strokecolor = plotGray, strokewidth = 1)
+# scatter!(ax31, 1:Np, fhn_p, color = cvec)
+# ax31.xticks = (1:Np, trmstr)
+# ax31.xticklabelrotation = π/4
+# hlines!(ax31, 0.0, color = plotGray)
+# ylims!(ax31, -1.1, 1.1)
+# xlims!(ax31, 0.25, Np + 0.75)
 
 # Plot the FS simulation results
 T = ts[end] 
