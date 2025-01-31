@@ -2,9 +2,11 @@ include("integrator.jl")
 # Packages for plotting and default theming
 using CairoMakie
 using LinearAlgebra, Statistics
-using ReverseDiff, Optim
+using Optim, ForwardDiff
 using Random
 using Base.Threads, DataFrames
+using DifferentialEquations, DiffEqSensitivity
+# using RiverseDiff
 # using Plots
 plotGray = Makie.Colors.colorant"#4D4D4D"
 set_theme!(Theme(fontsize = 16, figure_padding = 10, textcolor = plotGray, fonts = Attributes(:regular => "Helvetica Neue Light"), size = (480, 480), Axis = (xgridvisible = false, ygridvisible = false, ytickalign = 1, xtickalign = 1, yticksmirrored = true, xticksmirrored = true, bottomspinecolor = plotGray, topspinecolor = plotGray, leftspinecolor = plotGray, rightsplinecolor = plotGray, xtickcolor = plotGray, ytickcolor = plotGray, spinewidth = 1.0)))
@@ -84,6 +86,17 @@ function smoothl1(x, alpha = 500)
     end
 end
 
+function stiff_integration_step!(cache, odefun, x, t0, p, dt, calcError=false)
+    # Create a (temporary) copy of x since the ODEProblem takes an initial condition.
+    x_0 = copy(x)
+    tspan = (t0, t0 + dt)
+    prob = ODEProblem(odefun, x_0, tspan, p)
+    sol = solve(prob, Rodas5(),sensealg=ForwardDiffSensitivity(), abstol=1e-8, reltol=1e-8)
+    # Update x in place with the solution at t+dt
+    copyto!(x, sol(t0 + dt))
+    return x
+end
+
 """
     forward_simulation_loss(x0, p, odefun D, t0, δt, S, γ = 0.0)
 
@@ -94,7 +107,7 @@ Optionally add a smooth L1 regularization term with weight γ.
 
 TODO: At this point assumes the state is two dimension!!!
 """
-function forward_simulation_loss(x0, p, odefun, D, t0, δt, S, γ = 0.0)
+function forward_simulation_loss(x0, p, odefun, D, t0, δt, S, γ = 0.0, stiff_solver=false)
     # Integration cache
     cache = Tsit5Cache(x0)
     # Current state
@@ -103,12 +116,12 @@ function forward_simulation_loss(x0, p, odefun, D, t0, δt, S, γ = 0.0)
 
     # Initial condition loss
     data_loss = abs2(x0[1] - data[1]) + abs2(x0[2] - data[2])
-
+    integration_method = stiff_solver ? stiff_integration_step! : integration_step!
     # Loop over all data points
     for i = 1:div(length(D), 2) - 1
         # Internal time steps
         for j = 1:S
-            integration_step!(cache, odefun, x, t0, p, δt, false)
+            integration_method(cache, odefun, x, t0, p, δt, false)
         end
 
         # Detect if we are going unstable
@@ -182,7 +195,7 @@ end
 
 ## Set up the loss functions and automatic differentiation
 # Parameters 
-S = 20          # Number of internal time steps
+S = 1          # Number of internal time steps
 δt = Δt / S     # Time step 
 α = 1.0         # Data loss weight 
 β = 100.0       # Model loss weight 
@@ -193,12 +206,25 @@ Nx = 2*(div(length(data), 2) - 1) * S + 2
 
 # Two term loss functions 
 da_loss(X, p) = data_assimilation_loss(X, p, odefun, data, α, β, δt, S, γ1)
-fs_loss(x0, p) = forward_simulation_loss(x0, p, odefun, data, 0.0, δt, S, γ2)
-# Compile the reverse differentiation tapes
-fs_loss_tape = ReverseDiff.GradientTape(fs_loss, (randn(2), similar(fhn_p)))
-compiled_fs_loss_tape = ReverseDiff.compile(fs_loss_tape)
-da_loss_tape = ReverseDiff.GradientTape(da_loss, (randn(Nx), similar(fhn_p)))
-compiled_da_loss_tape = ReverseDiff.compile(da_loss_tape)
+fs_loss(x0, p) = forward_simulation_loss(x0, p, odefun, data, 0.0, δt, S, γ2, true)
+# # Compile the reverse differentiation tapes
+# fs_loss_tape = ReverseDiff.GradientTape(fs_loss, (randn(2), similar(fhn_p)))
+# compiled_fs_loss_tape = ReverseDiff.compile(fs_loss_tape)
+# da_loss_tape = ReverseDiff.GradientTape(da_loss, (randn(Nx), similar(fhn_p)))
+# compiled_da_loss_tape = ReverseDiff.compile(da_loss_tape)
+
+function fs_loss(x)
+    x0 = view(x, 1:2)
+    p  = view(x, 3:length(x))
+    # Note: t0, dt, S, and γ2 are as defined in your code.
+    return forward_simulation_loss(x0, p, odefun, data, 0.0, δt, S, γ2)
+end
+# Compute the gradient of fs_loss_wrapper with respect to x0_full.
+function grad_fs_loss!(g,x)
+     g.= ForwardDiff.gradient(fs_loss, x)
+end
+
+
 
 #= Check gradient calculations 
 fs_inputs = (data[1:2], fhn_p)
@@ -211,10 +237,10 @@ ReverseDiff.gradient!(da_results, compiled_da_loss_tape, da_inputs)
 =# 
 
 # One term input loss functions and two term gradients for optim 
-da_loss(x) = da_loss(view(x, 1:length(x) - Np), view(x, length(x) - Np + 1:length(x)))
-grad_da_loss!(g, x) = ReverseDiff.gradient!((view(g, 1:length(g) - Np), view(g, length(g) - Np + 1:length(g))), compiled_da_loss_tape, (view(x, 1:length(x) - Np), view(x, length(x)- Np + 1:length(x))))
-fs_loss(x) = fs_loss(view(x, 1:2), view(x, 3:length(x)))
-grad_fs_loss!(g, x) = ReverseDiff.gradient!((view(g, 1:2), view(g, 3:length(g))), compiled_fs_loss_tape, (x[1:2], x[3:length(x)]))
+# da_loss(x) = da_loss(view(x, 1:length(x) - Np), view(x, length(x) - Np + 1:length(x)))
+# grad_da_loss!(g, x) = ReverseDiff.gradient!((view(g, 1:length(g) - Np), view(g, length(g) - Np + 1:length(g))), compiled_da_loss_tape, (view(x, 1:length(x) - Np), view(x, length(x)- Np + 1:length(x))))
+# fs_loss(x) = fs_loss(view(x, 1:2), view(x, 3:length(x)))
+# grad_fs_loss!(g, x) = ReverseDiff.gradient!((view(g, 1:2), view(g, 3:length(g))), compiled_fs_loss_tape, (x[1:2], x[3:length(x)]))
 
 # # # Optimizations 
 # # Data assimilation optimization 
@@ -224,7 +250,7 @@ grad_fs_loss!(g, x) = ReverseDiff.gradient!((view(g, 1:2), view(g, 3:length(g)))
 
 # # Gradient Free optimizatino for better initial guess
 # Define the number of seeds
-num_runs = 30
+num_runs = 10
 
 # Pre-allocate storage for results
 results = Vector{Tuple{Float64, Vector{Float64}}}(undef, num_runs)
@@ -239,10 +265,10 @@ results = Vector{Tuple{Float64, Vector{Float64}}}(undef, num_runs)
     # Define initial starting point
     # x0 = [data[1:2]; 0.01 * randn(length(fhn_p))]  # Small random perturbations
     # Define initial starting point with uniform sampling within a hypercube
-    lower_bound = -.000001
-    upper_bound = .000001
-    initial_guess = lower_bound .+ (upper_bound - lower_bound) .* rand(length(fhn_p))
-    x0 = [data[1:2]; initial_guess]
+    # lower_bound = -.001
+    # upper_bound = .001
+    # initial_guess = lower_bound .+ (upper_bound - lower_bound) .* rand(length(fhn_p))
+    x0 = [data[1:2]; 0.000001*randn(length(fhn_p))]
 
     # Optimization options
     options = Optim.Options(show_trace = false, iterations = 2500)
@@ -262,7 +288,7 @@ df = DataFrame(Cost = [r[1] for r in results],
 
 ##
 # Forward simulation optimization
-# options = Optim.Options(show_trace = true, iterations = 2500, show_every = 1)
+options = Optim.Options(show_trace = true, iterations = 2500, show_every = 1)
 # # Use parameters from DA optimization for the initial conditions of the FS optimization
 # # x0 = [data[1:2]; optres.minimizer[end - Np + 1:end]]
 # x0 = [data[1:2]; 0.01*zeros(length(fhn_p))]
@@ -276,7 +302,6 @@ x0_2 = [data[1:2]; df.Minimizer[argmin(df.Cost)][end-Np + 1:end]]
 
 
 optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0_2, BFGS(), options)
-
 
 ## Plot the results 
 trmstr = repeat(["1", "v", "w", "v²", "vw", "w²", "v³", "v²w", "vw²", "w³"], 2)

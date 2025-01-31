@@ -218,7 +218,9 @@ grad_fs_loss!(g, x) = ReverseDiff.gradient!((view(g, 1:2), view(g, 3:length(g)))
 # # Optimizations 
 # Data assimilation optimization 
 options = Optim.Options(show_trace = true, iterations = 5000, show_every = 10)
-x0 = [zeros(Nx); 0.01*zeros(length(fhn_p))]
+# x0 = [zeros(Nx); 0.01*zeros(length(fhn_p))]
+x0 = [zeros(Nx); 0.1*randn(length(fhn_p))]
+
 optres = Optim.optimize(da_loss, grad_da_loss!, x0, BFGS(), options)
 
 ##
