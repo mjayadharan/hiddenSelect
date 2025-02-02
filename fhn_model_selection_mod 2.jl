@@ -5,9 +5,37 @@ using LinearAlgebra, Statistics
 using Optim, ForwardDiff
 using Random
 using Base.Threads, DataFrames
-using DifferentialEquations, DiffEqSensitivity
+using DifferentialEquations
 # using RiverseDiff
 # using Plots
+
+
+function stiff_integration_step!(cache, odefun, x, t0, p, dt, solver=false, calcError=false)
+    # Create a (temporary) copy of x since the ODEProblem takes an initial condition.
+    x_0 = copy(x)
+    tspan = (t0, t0 + dt)
+    prob = ODEProblem(odefun, x_0, tspan, p)
+    solver = solver ? solver : Rodas5()
+    # sol = solve(prob, solver,sensealg=ForwardDiffSensitivity(), abstol=1e-8, reltol=1e-8)
+    sol = solve(prob, solver, abstol=1e-8, reltol=1e-8)
+
+    # Update x in place with the solution at t+dt
+    copyto!(x, sol(t0 + dt))
+    return x
+end
+
+function stiff_integrate(odefun, x_0, t0, T, dt, p, solver=false)
+    # Create a (temporary) copy of x since the ODEProblem takes an initial condition.
+    tspan = (t0, T)
+    prob = ODEProblem(odefun, x_0, tspan, p)
+    t_eval = t0:dt:T
+    solver = solver ? solver : Rodas5()
+    # sol = solve(prob, solver,sensealg=ForwardDiffSensitivity(), saveat=t_eval, abstol=1e-8, reltol=1e-8)
+    sol = solve(prob, solver, saveat=t_eval, abstol=1e-8, reltol=1e-8)
+    return sol.t, sol.u
+end
+
+
 plotGray = Makie.Colors.colorant"#4D4D4D"
 set_theme!(Theme(fontsize = 16, figure_padding = 10, textcolor = plotGray, fonts = Attributes(:regular => "Helvetica Neue Light"), size = (480, 480), Axis = (xgridvisible = false, ygridvisible = false, ytickalign = 1, xtickalign = 1, yticksmirrored = true, xticksmirrored = true, bottomspinecolor = plotGray, topspinecolor = plotGray, leftspinecolor = plotGray, rightsplinecolor = plotGray, xtickcolor = plotGray, ytickcolor = plotGray, spinewidth = 1.0)))
 
@@ -87,25 +115,7 @@ function smoothl1(x, alpha = 500)
     end
 end
 
-function stiff_integration_step!(cache, odefun, x, t0, p, dt, calcError=false)
-    # Create a (temporary) copy of x since the ODEProblem takes an initial condition.
-    x_0 = copy(x)
-    tspan = (t0, t0 + dt)
-    prob = ODEProblem(odefun, x_0, tspan, p)
-    sol = solve(prob, Rodas5(),sensealg=ForwardDiffSensitivity(), abstol=1e-8, reltol=1e-8)
-    # Update x in place with the solution at t+dt
-    copyto!(x, sol(t0 + dt))
-    return x
-end
 
-function stiff_integrate(odefun, x_0, t0, T, dt, p)
-    # Create a (temporary) copy of x since the ODEProblem takes an initial condition.
-    tspan = (t0, T)
-    prob = ODEProblem(odefun, x_0, tspan, p)
-    t_eval = t0:dt:T
-    sol = solve(prob, Rodas5(),sensealg=ForwardDiffSensitivity(), saveat=t_eval, abstol=1e-8, reltol=1e-8)
-    return sol.t, sol.u
-end
 
 """
     forward_simulation_loss(x0, p, odefun D, t0, δt, S, γ = 0.0)
@@ -137,6 +147,39 @@ function forward_simulation_loss(x0, p, odefun, D, t0, δt, S, γ = 0.0, stiff_s
         # Detect if we are going unstable
         any(abs.(x) .> 1e3) && (println("Breaking early: $(i), $(data_loss)"); data_loss += 1e2; return data_loss)#(println("Breaking early: $(data_loss)"); data_loss += 1e8; return data_loss)
         any(isnan.(x)) && (println("Breaking early: $(i), $(data_loss)"); data_loss += 1e2; return data_loss) #(println("Breaking early: $(data_loss)"); data_loss += 1e8; return data_loss)
+
+        # Data loss for current time point
+        data_loss += abs2(x[1] - data[1 + 2i]) + abs2(x[2] - data[2 + 2i])
+    end
+
+    # Sparsity term 
+    sparse_loss = 0.0
+    for p_i in p
+        sparse_loss += γ*smoothl1(p_i)
+    end
+    return data_loss / length(D) + sparse_loss / length(p)
+end
+
+function forward_window_simulation_loss(x0, p, odefun, D, t0, δt, S, num_windows=1, γ = 0.0, stiff_solver=false)
+    # Integration cache
+    cache = Tsit5Cache(x0)
+    # Current state
+    x = cache.ycur
+    copyto!(x, x0)
+
+    # Initial condition loss
+    data_loss = abs2(x0[1] - data[1]) + abs2(x0[2] - data[2])
+    integration_method = stiff_solver ? stiff_integration_step! : integration_step!
+    # Loop over all data points
+    for i = 1:div(length(D), 2) - 1
+        # Internal time steps
+        for j = 1:S
+            integration_method(cache, odefun, x, t0, p, δt, false)
+        end
+
+        # Detect if we are going unstable
+        any(abs.(x) .> 1e3) && (println("Breaking early: $(i), $(data_loss)"); data_loss += 1e2; return data_loss)
+        any(isnan.(x)) && (println("Breaking early: $(i), $(data_loss)"); data_loss += 1e2; return data_loss) 
 
         # Data loss for current time point
         data_loss += abs2(x[1] - data[1 + 2i]) + abs2(x[2] - data[2 + 2i])
