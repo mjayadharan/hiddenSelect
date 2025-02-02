@@ -97,6 +97,18 @@ function stiff_integration_step!(cache, odefun, x, t0, p, dt, calcError=false)
     return x
 end
 
+function stiff_integrate(odefun, x0, t0, T, p, dt)
+    # Create a (temporary) copy of x since the ODEProblem takes an initial condition.
+    tspan = (t0, T)
+    save_times = t0:dt:T  # Generate time points at which to save the solution
+    prob = ODEProblem(odefun, x0, tspan, p)
+    
+    sol = solve(prob, Rodas5(), sensealg=ForwardDiffSensitivity(), 
+                abstol=1e-8, reltol=1e-8, saveat=save_times)
+    
+    return sol.t, sol.u  # Return time points and corresponding solutions
+end
+
 """
     forward_simulation_loss(x0, p, odefun D, t0, δt, S, γ = 0.0)
 
@@ -250,7 +262,7 @@ ReverseDiff.gradient!(da_results, compiled_da_loss_tape, da_inputs)
 
 # # Gradient Free optimizatino for better initial guess
 # Define the number of seeds
-num_runs = 10
+num_runs = 30
 
 # Pre-allocate storage for results
 results = Vector{Tuple{Float64, Vector{Float64}}}(undef, num_runs)
@@ -298,7 +310,9 @@ options = Optim.Options(show_trace = true, iterations = 2500, show_every = 1)
 # # optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0, BFGS(), options)
 # optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0, NelderMead(), options)
 # x0_2 = [data[1:2]; optres2.minimizer[end-Np + 1:end]]
+# x0_2 = [data[1:2]; 0.0*randn(length(fhn_p))]
 x0_2 = [data[1:2]; df.Minimizer[argmin(df.Cost)][end-Np + 1:end]]
+
 
 
 optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0_2, BFGS(), options)
@@ -312,7 +326,9 @@ fig = Figure(size = (980, 480))
 # Plotting the GradFree simulation results
 T = ts[end] 
 N = Int(T / δt)
-_, ys = integrate(odefun, df.Minimizer[argmin(df.Cost)][1:2], df.Minimizer[argmin(df.Cost)][3:end], t0, N, δt, cache)
+
+_, ys = stiff_integrate(odefun, df.Minimizer[argmin(df.Cost)][1:2], t0, T, df.Minimizer[argmin(df.Cost)][3:end], δt)
+# _, ys = integrate(odefun, df.Minimizer[argmin(df.Cost)][1:2], df.Minimizer[argmin(df.Cost)][3:end], t0, N, δt, cache)
 ax11 = Axis(fig[1, 1])
 scatter!(ax11, ts, data[1:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
 lines!(ax11, 0:δt:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
@@ -376,7 +392,8 @@ xlims!(ax31, 0.25, Np + 0.75)
 # Plot the FS simulation results
 T = ts[end] 
 N = Int(T / δt)
-_, ys = integrate(odefun, optres2.minimizer[1:2], optres2.minimizer[end-Np + 1:end], t0, N, δt, cache)
+_,ys = stiff_integrate(odefun, optres2.minimizer[1:2], t0, T, optres2.minimizer[end-Np + 1:end], δt)
+# _, ys = integrate(odefun, optres2.minimizer[1:2], optres2.minimizer[end-Np + 1:end], t0, N, δt, cache)
 ax12 = Axis(fig[1, 2])
 scatter!(ax12, ts, data[1:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
 lines!(ax12, 0:δt:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
@@ -406,7 +423,7 @@ xlims!(ax32, 0.25, Np + 0.75)
 hideydecorations!(ax32, ticks = false)
 ax31.ylabel = "Parameter value"
 
-ax11.title = "Data Assimilation optimization"
+ax11.title = "Gradient-Free Initial optimization"
 ax12.title = "Forward Simulation optimization"
 ax11.titlefont = "Helvetica Neue Light"
 ax12.titlefont = "Helvetica Neue Light"
