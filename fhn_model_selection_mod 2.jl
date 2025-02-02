@@ -31,7 +31,8 @@ T = 156                    # Maxium integration time
 N = Int(T/δt)              # Number of integration steps
 t0 = 0.0                   # Initial time 
 # Integrate 
-_, ys = integrate(odefun, fhn_y0, fhn_p, t0, N, δt, cache)
+# _, ys = integrate(odefun, fhn_y0, fhn_p, t0, N, δt, cache)
+_, ys = stiff_integrate(odefun, fhn_y0, t0, T, δt, fhn_p)
 tsall = 0.0:δt:T
 # Downsample in time to generate sparser data
 downsample = 100
@@ -95,6 +96,15 @@ function stiff_integration_step!(cache, odefun, x, t0, p, dt, calcError=false)
     # Update x in place with the solution at t+dt
     copyto!(x, sol(t0 + dt))
     return x
+end
+
+function stiff_integrate(odefun, x_0, t0, T, dt, p)
+    # Create a (temporary) copy of x since the ODEProblem takes an initial condition.
+    tspan = (t0, T)
+    prob = ODEProblem(odefun, x_0, tspan, p)
+    t_eval = t0:dt:T
+    sol = solve(prob, Rodas5(),sensealg=ForwardDiffSensitivity(), saveat=t_eval, abstol=1e-8, reltol=1e-8)
+    return sol.t, sol.u
 end
 
 """
@@ -312,17 +322,19 @@ fig = Figure(size = (980, 480))
 # Plotting the GradFree simulation results
 T = ts[end] 
 N = Int(T / δt)
-_, ys = integrate(odefun, df.Minimizer[argmin(df.Cost)][1:2], df.Minimizer[argmin(df.Cost)][3:end], t0, N, δt, cache)
+δt_plot = δt/100
+_, ys =stiff_integrate(odefun, df.Minimizer[argmin(df.Cost)][1:2], t0, T, δt_plot, df.Minimizer[argmin(df.Cost)][3:end])
+# _, ys = integrate(odefun, df.Minimizer[argmin(df.Cost)][1:2], df.Minimizer[argmin(df.Cost)][3:end], t0, N, δt, cache)
 ax11 = Axis(fig[1, 1])
 scatter!(ax11, ts, data[1:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
-lines!(ax11, 0:δt:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
+lines!(ax11, t0:δt_plot:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
 lines!(ax11, tsall, alldata[1:2:end], color = plotGray, linestyle = :dash)
 ylims!(ax11, -3, 3)
 xlims!(ax11, 0.0, ts[end])
 hidexdecorations!(ax11, ticks = false)
 ax21 = Axis(fig[2, 1])
 scatter!(ax21, ts, data[2:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 0.25))
-lines!(ax21, 0:δt:T, getindex.(ys, 2), color = Makie.ColorSchemes.Signac[11])
+lines!(ax21, 0:δt_plot:T, getindex.(ys, 2), color = Makie.ColorSchemes.Signac[11])
 lines!(ax21, tsall, alldata[2:2:end], color = plotGray, linestyle = :dash)
 ylims!(ax21, -0.6, 1.65)
 xlims!(ax21, 0.0, ts[end])
@@ -376,17 +388,18 @@ xlims!(ax31, 0.25, Np + 0.75)
 # Plot the FS simulation results
 T = ts[end] 
 N = Int(T / δt)
-_, ys = integrate(odefun, optres2.minimizer[1:2], optres2.minimizer[end-Np + 1:end], t0, N, δt, cache)
+_, ys =stiff_integrate(odefun, optres2.minimizer[1:2], t0, T, δt_plot, optres2.minimizer[end-Np + 1:end])
+# _, ys = integrate(odefun, optres2.minimizer[1:2], optres2.minimizer[end-Np + 1:end], t0, N, δt, cache)
 ax12 = Axis(fig[1, 2])
 scatter!(ax12, ts, data[1:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
-lines!(ax12, 0:δt:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
+lines!(ax12, 0:δt_plot:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
 lines!(ax12, tsall, alldata[1:2:end], color = plotGray, linestyle = :dash)
 ylims!(ax12, -3, 3)
 xlims!(ax12, 0.0, ts[end])
 hidexdecorations!(ax12, ticks = false)
 ax22 = Axis(fig[2, 2])
 scatter!(ax22, ts, data[2:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 0.25))
-lines!(ax22, 0:δt:T, getindex.(ys, 2), color = Makie.ColorSchemes.Signac[11])
+lines!(ax22, 0:δt_plot:T, getindex.(ys, 2), color = Makie.ColorSchemes.Signac[11])
 lines!(ax22, tsall, alldata[2:2:end], color = plotGray, linestyle = :dash)
 ylims!(ax22, -0.6, 1.65)
 xlims!(ax22, 0.0, ts[end])
