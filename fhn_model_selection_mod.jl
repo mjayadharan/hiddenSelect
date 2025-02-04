@@ -5,7 +5,7 @@ using LinearAlgebra, Statistics
 using Optim, ForwardDiff
 using Random
 using Base.Threads, DataFrames
-using DifferentialEquations, DiffEqSensitivity
+using DifferentialEquations
 # using RiverseDiff
 # using Plots
 plotGray = Makie.Colors.colorant"#4D4D4D"
@@ -91,7 +91,9 @@ function stiff_integration_step!(cache, odefun, x, t0, p, dt, calcError=false)
     x_0 = copy(x)
     tspan = (t0, t0 + dt)
     prob = ODEProblem(odefun, x_0, tspan, p)
-    sol = solve(prob, Rodas5(),sensealg=ForwardDiffSensitivity(), abstol=1e-8, reltol=1e-8)
+    # sol = solve(prob, Rodas5(), abstol=1e-8, reltol=1e-8)
+    sol = solve(prob, Tsit5(), abstol=1e-5, reltol=1e-5)
+
     # Update x in place with the solution at t+dt
     copyto!(x, sol(t0 + dt))
     return x
@@ -205,8 +207,8 @@ S = 1          # Number of internal time steps
 Nx = 2*(div(length(data), 2) - 1) * S + 2 
 
 # Two term loss functions 
-da_loss(X, p) = data_assimilation_loss(X, p, odefun, data, α, β, δt, S, γ1)
-fs_loss(x0, p) = forward_simulation_loss(x0, p, odefun, data, 0.0, δt, S, γ2, true)
+# da_loss(X, p) = data_assimilation_loss(X, p, odefun, data, α, β, δt, S, γ1)
+# fs_loss(x0, p) = forward_simulation_loss(x0, p, odefun, data, 0.0, δt, S, γ2, true)
 # # Compile the reverse differentiation tapes
 # fs_loss_tape = ReverseDiff.GradientTape(fs_loss, (randn(2), similar(fhn_p)))
 # compiled_fs_loss_tape = ReverseDiff.compile(fs_loss_tape)
@@ -217,7 +219,7 @@ function fs_loss(x)
     x0 = view(x, 1:2)
     p  = view(x, 3:length(x))
     # Note: t0, dt, S, and γ2 are as defined in your code.
-    return forward_simulation_loss(x0, p, odefun, data, 0.0, δt, S, γ2)
+    return forward_simulation_loss(x0, p, odefun, data, 0.0, δt, S, γ2, false)
 end
 # Compute the gradient of fs_loss_wrapper with respect to x0_full.
 function grad_fs_loss!(g,x)

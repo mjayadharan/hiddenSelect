@@ -9,34 +9,6 @@ using DifferentialEquations
 using BenchmarkTools
 # using RiverseDiff
 # using Plots
-
-
-function stiff_integration_step!(cache, odefun, x, t0, p, dt, solver=false, calcError=false)
-    # Create a (temporary) copy of x since the ODEProblem takes an initial condition.
-    x_0 = copy(x)
-    tspan = (t0, t0 + dt)
-    prob = ODEProblem(odefun, x_0, tspan, p)
-    solver = solver ? solver : Rodas3()
-    # sol = solve(prob, solver,sensealg=ForwardDiffSensitivity(), abstol=1e-8, reltol=1e-8)
-    sol = solve(prob, solver, abstol=1e-8, reltol=1e-8)
-
-    # Update x in place with the solution at t+dt
-    copyto!(x, sol(t0 + dt))
-    return x
-end
-
-function stiff_integrate(odefun, x_0, t0, T, dt, p, solver=false)
-    # Create a (temporary) copy of x since the ODEProblem takes an initial condition.
-    tspan = (t0, T)
-    prob = ODEProblem(odefun, x_0, tspan, p)
-    t_eval = t0:dt:T
-    solver = solver ? solver : Rodas3()
-    # sol = solve(prob, solver,sensealg=ForwardDiffSensitivity(), saveat=t_eval, abstol=1e-8, reltol=1e-8)
-    sol = solve(prob, solver, saveat=t_eval, abstol=1e-8, reltol=1e-8)
-    return sol.t, sol.u
-end
-
-
 plotGray = Makie.Colors.colorant"#4D4D4D"
 set_theme!(Theme(fontsize = 16, figure_padding = 10, textcolor = plotGray, fonts = Attributes(:regular => "Helvetica Neue Light"), size = (480, 480), Axis = (xgridvisible = false, ygridvisible = false, ytickalign = 1, xtickalign = 1, yticksmirrored = true, xticksmirrored = true, bottomspinecolor = plotGray, topspinecolor = plotGray, leftspinecolor = plotGray, rightsplinecolor = plotGray, xtickcolor = plotGray, ytickcolor = plotGray, spinewidth = 1.0)))
 
@@ -60,8 +32,7 @@ T = 156                    # Maxium integration time
 N = Int(T/δt)              # Number of integration steps
 t0 = 0.0                   # Initial time 
 # Integrate 
-# _, ys = integrate(odefun, fhn_y0, fhn_p, t0, N, δt, cache)
-_, ys = stiff_integrate(odefun, fhn_y0, t0, T, δt, fhn_p)
+_, ys = integrate(odefun, fhn_y0, fhn_p, t0, N, δt, cache)
 tsall = 0.0:δt:T
 # Downsample in time to generate sparser data
 downsample = 100
@@ -116,7 +87,18 @@ function smoothl1(x, alpha = 500)
     end
 end
 
+function stiff_integration_step!(cache, odefun, x, t0, p, dt, calcError=false)
+    # Create a (temporary) copy of x since the ODEProblem takes an initial condition.
+    x_0 = copy(x)
+    tspan = (t0, t0 + dt)
+    prob = ODEProblem(odefun, x_0, tspan, p)
+    sol = solve(prob, Rodas5(), abstol=1e-6, reltol=1e-6)
+    # sol = solve(prob, Tsit5(), abstol=1e-8, reltol=1e-8)
 
+    # Update x in place with the solution at t+dt
+    copyto!(x, sol(t0 + dt))
+    return x
+end
 
 """
     forward_simulation_loss(x0, p, odefun D, t0, δt, S, γ = 0.0)
@@ -136,7 +118,7 @@ TODO: At this point assumes the state is two dimension!!!
 #     copyto!(x, x0)
 
 #     # Initial condition loss
-#     data_loss = abs2(x0[1] - D[1]) + abs2(x0[2] - D[2])
+#     data_loss = abs2(x0[1] - data[1]) + abs2(x0[2] - data[2])
 #     integration_method = stiff_solver ? stiff_integration_step! : integration_step!
 #     # Loop over all data points
 #     for i = 1:div(length(D), 2) - 1
@@ -146,91 +128,205 @@ TODO: At this point assumes the state is two dimension!!!
 #         end
 
 #         # Detect if we are going unstable
-#         if any(abs.(x) .> 1e3) || any(isnan.(x))
-#             println("Breaking early at iteration $(i), loss $(data_loss)")
-#             data_loss += 1e2
-#             return data_loss
-#         end
+#         any(abs.(x) .> 1e3) && (println("Breaking early: $(i), $(data_loss)"); data_loss += 1e2; return data_loss)#(println("Breaking early: $(data_loss)"); data_loss += 1e8; return data_loss)
+#         any(isnan.(x)) && (println("Breaking early: $(i), $(data_loss)"); data_loss += 1e2; return data_loss) #(println("Breaking early: $(data_loss)"); data_loss += 1e8; return data_loss)
 
 #         # Data loss for current time point
-#         data_loss += abs2(x[1] - D[1 + 2i]) + abs2(x[2] - D[2 + 2i])
+#         data_loss += abs2(x[1] - data[1 + 2i]) + abs2(x[2] - data[2 + 2i])
 #     end
 
 #     # Sparsity term 
-#     sparse_loss = sum(γ * smoothl1(p_i) for p_i in p)
+#     sparse_loss = 0.0
+#     for p_i in p
+#         sparse_loss += γ*smoothl1(p_i)
+#     end
 #     return data_loss / length(D) + sparse_loss / length(p)
 # end
 
-# function partition_view(arr::AbstractVector, num_windows::Int)
-#     # Create one view for each chunk. We use `@view` so no copy is made.
-#     chunk_size = div(length(arr), num_windows)
-#     return [@view arr[i : min(i+chunk_size-1, length(arr))] 
-#             for i in 1:chunk_size:length(arr)]
-# end
+function forward_simulation_loss(x0, p, odefun, D, t0, δt, S, 
+    γ = 0.0, stiff_solver=false)
+# S: internal steps (only relevant when stiff_solver=false in your code)
+# D_1, D_2: the data columns for v(t) and w(t)
 
-function forward_simulation_loss_window(p, odefun, data_windows, t0, δt, S, stiff_solver=false)
-    
-    D_1, D_2 = data_windows
-    # Integration cache
-    x0 = [D_1[1], D_2[1]]
-    cache = Tsit5Cache(x0)
-    # Current state
-    x = cache.ycur
-    copyto!(x, x0)
+    D_1 = @view D[1:2:end]
+    D_2 = @view D[2:2:end]
+    if stiff_solver
+        # -----------------------------------------------------
+        # STIFF SOLVER BRANCH
+        # -----------------------------------------------------
+        final_time = t0 + δt*(length(D_1) - 1)
+        t_eval = t0:δt:final_time
 
-    # Initial condition loss
-    # data_loss = abs2(x0[1] - D[1]) + abs2(x0[2] - D[2])
-    data_loss = 0.0
-    integration_method = stiff_solver ? stiff_integration_step! : integration_step!
-    # Loop over all data points
-    for i = 1:length(D_1) - 1
-        # Internal time steps
-        for j = 1:S
-            integration_method(cache, odefun, x, t0, p, δt, false)
+        # Set up the ODE problem
+        prob = ODEProblem(odefun, x0, (t0, final_time), p)
+
+        # Solve with a stiff solver, e.g., Rodas3
+        # sol = solve(prob, Rodas3(); saveat=t_eval, abstol=1e-6, reltol=1e-6)
+        sol = solve(prob, Tsit5(); saveat=t_eval, abstol=1e-8, reltol=1e-8)
+
+
+
+        # # Check for blow-ups or NaNs in the solution
+        if length(D_1) != length([getindex(u_ind,1) for u_ind in sol.u]) ||
+            any([getindex(u_ind,1) for u_ind in sol.u] .> 1e3) ||
+            any([getindex(u_ind,2) for u_ind in sol.u] .> 1e3) ||
+            any(isnan.([getindex(u_ind,1) for u_ind in sol.u])) ||
+            any(isnan.([getindex(u_ind,2) for u_ind in sol.u]))
+            @info "Breaking early at the p value: $(p)"
+                return 1e3
         end
 
-        # Detect if we are going unstable
-        if any(abs.(x) .> 1e3) || any(isnan.(x))
-            println("Breaking early at iteration $(i), loss $(data_loss)")
-            data_loss += 1e2
-            return data_loss
+
+        # Sum-of-squares difference to data
+        # D_1[i] is v-data, D_2[i] is w-data, and sol.u[i][1], sol.u[i][2] the solution states
+        # data_loss = 0.0
+        # for (i, t) in enumerate(t_eval)
+        #     data_loss += abs2(sol.u[i][1] - D_1[i]) + abs2(sol.u[i][2] - D_2[i])
+        # end
+
+        data_loss = norm(D_1- [getindex(u_ind,1) for u_ind in sol.u], 2)^2 + norm(D_2- [getindex(u_ind,2) for u_ind in sol.u], 2)^2
+        # Add smooth L1 regularization if desired
+        sparse_loss = sum(γ * smoothl1(pi) for pi in p)
+
+        # Normalize by number of data points (optional) and return
+        return data_loss/length(t_eval) + sparse_loss/length(p)
+
+    else
+        # -----------------------------------------------------
+        # NON-STIFF BRANCH (YOUR ORIGINAL LOOP-BASED APPROACH)
+        # -----------------------------------------------------
+        # Integration cache
+        cache = Tsit5Cache(x0)
+        x = cache.ycur
+        copyto!(x, x0)
+
+        # Initial condition loss
+        data_loss = abs2(x0[1] - D_1[1]) + abs2(x0[2] - D_2[1])
+        integration_method = integration_step!
+
+        # Loop over the data points
+        for i = 1:length(D_1) - 1
+            # Internal time steps
+            for j = 1:S
+                integration_method(cache, odefun, x, t0, p, δt, false)
+            end
+
+            # Detect blow-ups
+            if any(abs.(x) .> 1e3) || any(isnan.(x))
+                @info "Breaking early at p value $(p), solution blew up or NaN."
+                return 1e3
+            end
+            # Data loss for current time point
+            data_loss += abs2(x[1] - D_1[i+1]) + abs2(x[2] - D_2[i+1])
         end
 
-        # Data loss for current time point
-        data_loss += abs2(x[1] - D_1[i]) + abs2(x[2] - D_2[i])
+        # Sparsity term
+        sparse_loss = sum(γ * smoothl1(pi) for pi in p)
+
+        return data_loss / (2*length(D_1)) + sparse_loss / length(p)
     end
-
-    # Sparsity term 
-    # sparse_loss = sum(γ * smoothl1(p_i) for p_i in p)
-    return data_loss / length(D_1)
 end
 
-function partition_view(arr::AbstractVector, num_windows::Int)
-    # Create one view for each chunk. We use `@view` so no copy is made.
-    chunk_size = div(length(arr), num_windows)
-    return [@view arr[i : min(i+chunk_size-1, length(arr))] 
-            for i in 1:chunk_size:length(arr)]
+#Function for weighting data loss
+weight_func_linear(x;α=1,n=10) = α*(x-1)/(n-1)
+weight_func_exp(x; α=1, n=10, k=0.05) = α * (exp(k*(x - 1)) - 1) / (exp(k*(n - 1)) - 1)
+weight_func_quad(x; α=1, n=10) = α * ((x - 1)^2) / ((n - 1)^2)
+
+# plot(1:length(D_1),dum_fun.(1:length(D_1);α=0.5,n=length(D_1)))
+function forward_simulation_loss_windows(x0, p, odefun, D, t0, δt, S, 
+    γ = 0.0, num_windows=0, stiff_solver=false)
+# S: internal steps (only relevant when stiff_solver=false in your code)
+# D_1, D_2: the data columns for v(t) and w(t)
+
+    D_1 = @view D[1:2:end]
+    D_2 = @view D[2:2:end]
+    num_windows = num_windows>0 ? num_windows : length(D_1)-1
+    window_size = div(length(D_1), num_windows)
+    if stiff_solver
+        # -----------------------------------------------------
+        # STIFF SOLVER BRANCH
+        # -----------------------------------------------------
+        Δt = δt * S
+        final_time = t0 + Δt*(length(D_1) - 1)
+        t_eval = t0:Δt:final_time
+
+        # Set up the ODE problem
+        prob = ODEProblem(odefun, x0, (t0, final_time), p)
+
+        # Solve with a stiff solver, e.g., Rodas3
+        # sol = solve(prob, Rodas3(); saveat=t_eval, abstol=1e-5, reltol=1e-5)
+        sol = solve(prob, Tsit5(); saveat=t_eval, abstol=1e-8, reltol=1e-8)
+
+
+
+        # # Check for blow-ups or NaNs in the solution
+        if length(D_1) != length([getindex(u_ind,1) for u_ind in sol.u]) ||
+            any([getindex(u_ind,1) for u_ind in sol.u] .> 1e3) ||
+            any([getindex(u_ind,2) for u_ind in sol.u] .> 1e3) ||
+            any(isnan.([getindex(u_ind,1) for u_ind in sol.u])) ||
+            any(isnan.([getindex(u_ind,2) for u_ind in sol.u]))
+            @info "Breaking early at the p value: $(p)"
+                return 1e3
+        end
+
+
+        # Sum-of-squares difference to data
+        # D_1[i] is v-data, D_2[i] is w-data, and sol.u[i][1], sol.u[i][2] the solution states
+        # data_loss = 0.0
+        # for (i, t) in enumerate(t_eval)
+        #     data_loss += abs2(sol.u[i][1] - D_1[i]) + abs2(sol.u[i][2] - D_2[i])
+        # end
+
+        data_loss = norm(D_1- [getindex(u_ind,1) for u_ind in sol.u], 2)^2 + norm(D_2- [getindex(u_ind,2) for u_ind in sol.u], 2)^2
+        # Add smooth L1 regularization if desired
+        sparse_loss = sum(γ * smoothl1(pi) for pi in p)
+
+        # Normalize by number of data points (optional) and return
+        return data_loss/length(t_eval) + sparse_loss/length(p)
+
+    else
+        # -----------------------------------------------------
+        # NON-STIFF BRANCH (YOUR ORIGINAL LOOP-BASED APPROACH)
+        # -----------------------------------------------------
+        # Integration cache
+        cache = Tsit5Cache(x0)
+        x = cache.ycur
+        copyto!(x, x0)
+
+        weight_vector = 0.01 .+weight_func_linear.(1:length(D_1);α=1,n=length(D_1))
+        # weight_vector = ones(length(D_1))
+
+        # Initial condition loss
+        data_loss = weight_vector[1]*(abs2(x0[1] - D_1[1]) + abs2(x0[2] - D_2[1]))
+        integration_method = integration_step!
+        # Loop over the data points
+        for i = 1:length(D_1) - 1
+            #Resetting the initial condition for each window using data
+            if i % window_size == 0
+                copyto!(x, [D_1[i], D_2[i]])
+            end
+            # copyto!(x, [D_1[i], D_2[i]])
+            # Internal time steps
+            for j = 1:S
+                integration_method(cache, odefun, x, t0, p, δt, false)
+            end
+
+            # Detect blow-ups
+            if any(abs.(x) .> 1e3) || any(isnan.(x))
+                @info "Breaking early at p value $(p), solution blew up or NaN."
+                return 1e3
+            end
+            # Data loss for current time point
+            data_loss += weight_vector[i+1]*(abs2(x[1] - D_1[i+1]) + abs2(x[2] - D_2[i+1]))
+        end
+
+        # Sparsity term
+        sparse_loss = sum(γ * smoothl1(pi) for pi in p)
+
+        return data_loss / (2*length(D_1)) + sparse_loss / length(p)
+    end
 end
 
-
-function forward_simulation_loss(x0, p, odefun, D_1,D_2, t0, δt, S; num_windows=1, γ = 0.0, stiff_solver=false)
-    
-    # D_1, D_2 = D_tuple
-    data_windows_1 = partition_view(D_1, num_windows)
-    data_windows_2 = partition_view(D_2, num_windows)
-
-    #Loss from initial condition
-    data_loss = abs2(x0[1] - D_1[1]) + abs2(x0[2] - D_2[1])
-
-    #data loss from data windows summed up
-    data_loss += sum(forward_simulation_loss_window(p, odefun, (data_window_1, data_window_2), t0, δt, S, stiff_solver)
-                    for (data_window_1, data_window_2) in zip(data_windows_1,data_windows_2))
-
-
-    # Sparsity term 
-    sparse_loss = sum(γ * smoothl1(p_i) for p_i in p)
-    return data_loss / length(D_1) + sparse_loss / length(p)
-end
 
 """
     data_assimilation_loss(X, p, odefun, data, α, β, δt, S, γ = 0.0)
@@ -287,7 +383,7 @@ end
 
 ## Set up the loss functions and automatic differentiation
 # Parameters 
-S = 1          # Number of internal time steps
+S = 10       # Number of internal time steps
 δt = Δt / S     # Time step 
 α = 1.0         # Data loss weight 
 β = 100.0       # Model loss weight 
@@ -304,21 +400,32 @@ Nx = 2*(div(length(data), 2) - 1) * S + 2
 # compiled_fs_loss_tape = ReverseDiff.compile(fs_loss_tape)
 # da_loss_tape = ReverseDiff.GradientTape(da_loss, (randn(Nx), similar(fhn_p)))
 # compiled_da_loss_tape = ReverseDiff.compile(da_loss_tape)
-d_1 = @view data[1:2:end]
-d_2 =  @view data[2:2:end]
-data_tuple = (d_1, d_2)
-
 
 function fs_loss(x)
     x0 = view(x, 1:2)
     p  = view(x, 3:length(x))
     # Note: t0, dt, S, and γ2 are as defined in your code.
-    return forward_simulation_loss(x0, p, odefun, d_1,d_2, 0.0, δt, S; num_windows=1, γ =γ2, stiff_solver=false)
+    return forward_simulation_loss(x0, p, odefun, data, 0.0, δt, S, γ2, false)
+    # return forward_simulation_loss(x0, p, odefun, data, 0.0, δt, S, γ2, false)
+
 end
 # Compute the gradient of fs_loss_wrapper with respect to x0_full.
 function grad_fs_loss!(g,x)
      g.= ForwardDiff.gradient(fs_loss, x)
 end
+
+# function fs_loss_window(x)
+#     x0 = view(x, 1:2)
+#     p  = view(x, 3:length(x))
+#     # Note: t0, dt, S, and γ2 are as defined in your code.
+#     return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, S, γ2,30, false)
+#     # return forward_simulation_loss(x0, p, odefun, data, 0.0, δt, S, γ2, false)
+
+# end
+# # Compute the gradient of fs_loss_wrapper with respect to x0_full.
+# function grad_fs_loss_window!(g,x)
+#      g.= ForwardDiff.gradient(fs_loss, x)
+# end
 
 
 
@@ -346,11 +453,13 @@ ReverseDiff.gradient!(da_results, compiled_da_loss_tape, da_inputs)
 
 # # Gradient Free optimizatino for better initial guess
 # Define the number of seeds
-num_runs = 10
+num_runs = 1
 
 # Pre-allocate storage for results
-results = Vector{Tuple{Float64, Vector{Float64}}}(undef, num_runs)
+results_outer = Vector{Tuple{Float64, Vector{Float64}}}(undef, num_runs)
+results_inner = Vector{Tuple{Float64, Vector{Float64}}}(undef, div(length(data), 2) - 1)
 
+x0 = [data[1:2]; 0.00001*randn(length(fhn_p))]
 # Run optimization in parallel
 @threads for i in 1:num_runs
 # for i in 1:num_runs
@@ -364,23 +473,45 @@ results = Vector{Tuple{Float64, Vector{Float64}}}(undef, num_runs)
     # lower_bound = -.001
     # upper_bound = .001
     # initial_guess = lower_bound .+ (upper_bound - lower_bound) .* rand(length(fhn_p))
-    x0 = [data[1:2]; 0.000001*randn(length(fhn_p))]
-
-    # Optimization options
     options = Optim.Options(show_trace = false, iterations = 2500)
+    for num_windows in div(length(data), 2) - 1:-2:1
+        # Define the loss function
+        function fs_loss_window(x)
+            x0 = view(x, 1:2)
+            p  = view(x, 3:length(x))
+            # Note: t0, dt, S, and γ2 are as defined in your code.
+            return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, S, γ2,num_windows, false)
+            # return forward_simulation_loss(x0, p, odefun, data, 0.0, δt, S, γ2, false)
+        
+        end
+        # Compute the gradient of fs_loss_wrapper with respect to x0_full.
+        function grad_fs_loss_window!(g,x)
+            g.= ForwardDiff.gradient(fs_loss, x)
+        end
+        # Optimization options
 
-    # # Run optimization
-    optres = Optim.optimize(fs_loss, grad_fs_loss!, x0, NelderMead(), options)
+        # # Run optimization
+        optres = Optim.optimize(fs_loss_window, grad_fs_loss_window!, x0, NelderMead(), options)
+        # optres = Optim.optimize(fs_loss_window, grad_fs_loss_window!, x0, BFGS(), options)
+
+        copyto!(x0, optres.minimizer)
+        println("GF, window size: $num_windows, cost: $(Optim.minimum(optres))")
+        results_inner[num_windows] = (Optim.minimum(optres), Optim.minimizer(optres))
+        
+    end
+
 
     # # Store seed, cost function value, and minimizer
-    results[i] = (Optim.minimum(optres), Optim.minimizer(optres))
-    println("finished optimization run $i")
+    # results_outer[i] = (results_inner[1][1], results_inner[1][2])
+    results_outer[i] = argmin(r -> r[1], results_inner)
+
+    println("finished GFree optimization run $i")
 end
 
 # Save results to a file (optional)
 # using DataFrames
-df = DataFrame(Cost = [r[1] for r in results], 
-               Minimizer = [r[2] for r in results])
+df = DataFrame(Cost = [r[1] for r in results_outer], 
+               Minimizer = [r[2] for r in results_outer])
 
 ##
 # Forward simulation optimization
@@ -394,7 +525,11 @@ options = Optim.Options(show_trace = true, iterations = 2500, show_every = 1)
 # # optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0, BFGS(), options)
 # optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0, NelderMead(), options)
 # x0_2 = [data[1:2]; optres2.minimizer[end-Np + 1:end]]
+
 x0_2 = [data[1:2]; df.Minimizer[argmin(df.Cost)][end-Np + 1:end]]
+# x0_2 = [data[1:2]; 0.00*randn(length(fhn_p))]
+
+
 
 
 optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0_2, BFGS(), options)
@@ -408,19 +543,17 @@ fig = Figure(size = (980, 480))
 # Plotting the GradFree simulation results
 T = ts[end] 
 N = Int(T / δt)
-δt_plot = δt/100
-_, ys =stiff_integrate(odefun, df.Minimizer[argmin(df.Cost)][1:2], t0, T, δt_plot, df.Minimizer[argmin(df.Cost)][3:end])
-# _, ys = integrate(odefun, df.Minimizer[argmin(df.Cost)][1:2], df.Minimizer[argmin(df.Cost)][3:end], t0, N, δt, cache)
+_, ys = integrate(odefun, df.Minimizer[argmin(df.Cost)][1:2], df.Minimizer[argmin(df.Cost)][3:end], t0, N, δt, cache)
 ax11 = Axis(fig[1, 1])
 scatter!(ax11, ts, data[1:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
-lines!(ax11, t0:δt_plot:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
+lines!(ax11, 0:δt:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
 lines!(ax11, tsall, alldata[1:2:end], color = plotGray, linestyle = :dash)
 ylims!(ax11, -3, 3)
 xlims!(ax11, 0.0, ts[end])
 hidexdecorations!(ax11, ticks = false)
 ax21 = Axis(fig[2, 1])
 scatter!(ax21, ts, data[2:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 0.25))
-lines!(ax21, 0:δt_plot:T, getindex.(ys, 2), color = Makie.ColorSchemes.Signac[11])
+lines!(ax21, 0:δt:T, getindex.(ys, 2), color = Makie.ColorSchemes.Signac[11])
 lines!(ax21, tsall, alldata[2:2:end], color = plotGray, linestyle = :dash)
 ylims!(ax21, -0.6, 1.65)
 xlims!(ax21, 0.0, ts[end])
@@ -474,18 +607,17 @@ xlims!(ax31, 0.25, Np + 0.75)
 # Plot the FS simulation results
 T = ts[end] 
 N = Int(T / δt)
-_, ys =stiff_integrate(odefun, optres2.minimizer[1:2], t0, T, δt_plot, optres2.minimizer[end-Np + 1:end])
-# _, ys = integrate(odefun, optres2.minimizer[1:2], optres2.minimizer[end-Np + 1:end], t0, N, δt, cache)
+_, ys = integrate(odefun, optres2.minimizer[1:2], optres2.minimizer[end-Np + 1:end], t0, N, δt, cache)
 ax12 = Axis(fig[1, 2])
 scatter!(ax12, ts, data[1:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
-lines!(ax12, 0:δt_plot:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
+lines!(ax12, 0:δt:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
 lines!(ax12, tsall, alldata[1:2:end], color = plotGray, linestyle = :dash)
 ylims!(ax12, -3, 3)
 xlims!(ax12, 0.0, ts[end])
 hidexdecorations!(ax12, ticks = false)
 ax22 = Axis(fig[2, 2])
 scatter!(ax22, ts, data[2:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 0.25))
-lines!(ax22, 0:δt_plot:T, getindex.(ys, 2), color = Makie.ColorSchemes.Signac[11])
+lines!(ax22, 0:δt:T, getindex.(ys, 2), color = Makie.ColorSchemes.Signac[11])
 lines!(ax22, tsall, alldata[2:2:end], color = plotGray, linestyle = :dash)
 ylims!(ax22, -0.6, 1.65)
 xlims!(ax22, 0.0, ts[end])
@@ -512,4 +644,61 @@ ax12.titlefont = "Helvetica Neue Light"
 fig
 
 
+
+
+# D_1 = data[1:2:end]
+# D_2 = data[2:2:end]
+# # -----------------------------------------------------
+# # STIFF SOLVER BRANCH
+# # -----------------------------------------------------
+# final_time = t0 + δt*(length(D_1) - 1)
+# t_eval = t0:δt:final_time
+# # Set up the ODE problem
+# p = 0.1*randn(length(fhn_p))
+# prob = ODEProblem(odefun, [1,1], (t0, final_time), p)
+
+
+# function dummy()
+    
+#     try
+#         # Solve with a stiff solver, e.g., Rodas3
+#         sol = solve(prob, Rodas3(); saveat=t_eval, abstol=1e-8, reltol=1e-8)
+#         return 1000
+#     catch e
+#         # @warn "Solver failed or diverged" #exception=e
+#         return 1e3
+#     end
+# end
+
+# # # Check for blow-ups or NaNs in the solution
+# if length(D_1) != length([getindex(u_ind,1) for u_ind in sol.u]) ||
+#     any([getindex(u_ind,1) for u_ind in sol.u] .> 1e3) ||
+#      any([getindex(u_ind,2) for u_ind in sol.u] .> 1e3) ||
+#      any(isnan.([getindex(u_ind,1) for u_ind in sol.u])) ||
+#       any(isnan.([getindex(u_ind,2) for u_ind in sol.u]))
+#    println("Breaking early")
+# end
+# # end
+
+# data_loss = 0.0
+# function find_sum!(data_loss)
+# # Sum-of-squares difference to data
+# # D_1[i] is v-data, D_2[i] is w-data, and sol.u[i][1], sol.u[i][2] the solution states
+#     for (i, t) in enumerate(t_eval)
+#         data_loss += abs2(sol.u[i][1] - D_1[i]) + abs2(sol.u[i][2] - D_2[i])
+#     end
+# end
+
+
+
+# data_loss = norm(D_1- [getindex(u_ind,1) for u_ind in sol.u], 2)^2 + norm(D_2- [getindex(u_ind,2) for u_ind in sol.u], 2)^2
+# data_loss
+
+# if length(D_1) != length([getindex(u_ind,1) for u_ind in sol.u]) ||
+#      any([getindex(u_ind,1) for u_ind in sol.u] .> 1e3) ||
+#       any([getindex(u_ind,2) for u_ind in sol.u] .> 1e3) ||
+#       any(isnan.([getindex(u_ind,1) for u_ind in sol.u])) ||
+#        any(isnan.([getindex(u_ind,2) for u_ind in sol.u]))
+#     println("Breaking early")
+# end
 
