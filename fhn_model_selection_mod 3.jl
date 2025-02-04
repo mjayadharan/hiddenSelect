@@ -459,7 +459,7 @@ num_runs = 1
 results_outer = Vector{Tuple{Float64, Vector{Float64}}}(undef, num_runs)
 results_inner = Vector{Tuple{Float64, Vector{Float64}}}(undef, div(length(data), 2) - 1)
 
-x0 = [data[1:2]; 0.00001*randn(length(fhn_p))]
+x0 = [data[1:2]; 0.01*randn(length(fhn_p))]
 # Run optimization in parallel
 @threads for i in 1:num_runs
 # for i in 1:num_runs
@@ -474,7 +474,7 @@ x0 = [data[1:2]; 0.00001*randn(length(fhn_p))]
     # upper_bound = .001
     # initial_guess = lower_bound .+ (upper_bound - lower_bound) .* rand(length(fhn_p))
     options = Optim.Options(show_trace = false, iterations = 2500)
-    for num_windows in div(length(data), 2) - 1:-2:1
+    for num_windows in div(length(data), 2) - 1:-1:1
         # Define the loss function
         function fs_loss_window(x)
             x0 = view(x, 1:2)
