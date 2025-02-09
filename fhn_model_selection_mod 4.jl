@@ -657,97 +657,276 @@ fig
 
 
 
-# D_1 = data[1:2:end]
-# D_2 = data[2:2:end]
-# # -----------------------------------------------------
-# # STIFF SOLVER BRANCH
-# # -----------------------------------------------------
-# final_time = t0 + δt*(length(D_1) - 1)
-# t_eval = t0:δt:final_time
-# # Set up the ODE problem
-# p = 0.1*randn(length(fhn_p))
-# prob = ODEProblem(odefun, [1,1], (t0, final_time), p)
+
+#================================================================================
+# Plotting the contour plots of the loss function
+================================================================================#
+function plot_contours!(fig, loss_function, center_param; ref_point=nothing, delta_range_=0.5, n_grids,
+        index_pairs=[(3, 4), (5, 6), (7, 8), (9, 10)], figure_title="Loss function landscape")
 
 
-# function dummy()
-    
-#     try
-#         # Solve with a stiff solver, e.g., Rodas3
-#         sol = solve(prob, Rodas3(); saveat=t_eval, abstol=1e-8, reltol=1e-8)
-#         return 1000
-#     catch e
-#         # @warn "Solver failed or diverged" #exception=e
-#         return 1e3
-#     end
-# end
+    ref_point = ref_point === nothing ? center_param : ref_point
+    # Grid size and variation range
+    Ngrid       = n_grids
+    delta_range = delta_range_  # How far left/right to scan from center
 
-# # # Check for blow-ups or NaNs in the solution
-# if length(D_1) != length([getindex(u_ind,1) for u_ind in sol.u]) ||
-#     any([getindex(u_ind,1) for u_ind in sol.u] .> 1e3) ||
-#      any([getindex(u_ind,2) for u_ind in sol.u] .> 1e3) ||
-#      any(isnan.([getindex(u_ind,1) for u_ind in sol.u])) ||
-#       any(isnan.([getindex(u_ind,2) for u_ind in sol.u]))
-#    println("Breaking early")
-# end
-# # end
+    # Create a grid layout for proper spacing
+    grid = fig[1, 1] = GridLayout()
+    # Label(fig[0, 1], figure_title, fontsize=24, tellheight=false) 
 
-# data_loss = 0.0
-# function find_sum!(data_loss)
-# # Sum-of-squares difference to data
-# # D_1[i] is v-data, D_2[i] is w-data, and sol.u[i][1], sol.u[i][2] the solution states
-#     for (i, t) in enumerate(t_eval)
-#         data_loss += abs2(sol.u[i][1] - D_1[i]) + abs2(sol.u[i][2] - D_2[i])
-#     end
-# end
+    # Store subplot axes and colorbars separately
+    axs = Matrix{Axis}(undef, 2, 2)
+    cbs = Matrix{Colorbar}(undef, 2, 2)  # Store separate colorbars for each plot
+
+    # Iterate over the four parameter pairs
+    for (idx, (p1_index, p2_index)) in enumerate(index_pairs)
+        row, col = Tuple(CartesianIndices((2, 2))[idx])  # Convert index to 2x2 grid positions
+
+        # Create subplot axis
+        ax = Axis(grid[row, 2col-1],  # Place axes in odd columns
+            xlabel = "p$(p1_index)",
+            ylabel = "p$(p2_index)",
+            title  = "loss_function (p$(p1_index), p$(p2_index)): #Windows: $figure_title")
+
+        axs[row, col] = ax  # Store axis reference
+
+        # Extract central values for the parameters
+        p1_center = center_param[p1_index]
+        p2_center = center_param[p2_index]
+
+        # Define parameter ranges
+        p1_values = LinRange(p1_center - delta_range, p1_center + delta_range, Ngrid)
+        p2_values = LinRange(p2_center - delta_range, p2_center + delta_range, Ngrid)
+
+        # Preallocate a matrix to hold cost values
+        costvals = Matrix{Float64}(undef, Ngrid, Ngrid)
+
+        # Evaluate loss_function at each (p1, p2) pair
+        for i in 1:Ngrid
+            for j in 1:Ngrid
+                # Copy the best-fit parameter vector, then replace p1 and p2
+                p_trial = copy(center_param)
+                p_trial[p1_index] = p1_values[i]
+                p_trial[p2_index] = p2_values[j]
+
+                # Evaluate the loss function
+                costvals[i, j] = loss_function(p_trial)
+            end
+        end
+          # Apply clamping if limits are set
+        costvals .= clamp.(costvals, -10, 100)
+        # Plot filled contour
+        hm = contourf!(ax, p1_values, p2_values, costvals; levels=40, colormap=:viridis)
+
+        # Highlight the optimal value with a **solid red circle**
+        scatter!(ax, [center_param[p1_index]], [center_param[p2_index]], 
+                color=:red, markersize=12, strokewidth=3, strokecolor=:black)
+
+        # Highlight the ref param value with a **solid orange circle**
+        scatter!(ax, [ref_point[p1_index]], [ref_point[p2_index]], 
+                color=:orange, markersize=20, strokewidth=3, strokecolor=:black)
+        # text!(ax.scene, Point3f(0.0, 0.0, 0.5), text="num_windows: $num_windows", fontsize=15, color=:red)
+        
+
+        # Define unique label for each colorbar
+        cb_label = "loss function (p$(p1_index), p$(p2_index))"
+
+        # Place colorbars **in separate adjacent columns** (even-numbered columns)
+        cbs[row, col] = Colorbar(grid[row, 2col]; colorrange=extrema(costvals), label=cb_label)
+    end
+
+    # return fig
+end
+
+#================================================================================#
+S=20
+fig = Figure(size = (1800, 1800))  # Define the figure once
+num_windows_ = 1
+param_center = [data[1:2]; fhn_p]
+function fs_loss_window(x)
+    x0 = view(x, 1:2)
+    p  = view(x, 3:length(x))
+    return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, S, γ2, num_windows_, false)
+end
+
+plot_contours!(fig, fs_loss_window, param_center;
+ref_point=results_inner[num_windows_][2], delta_range_=1, n_grids=50,
+index_pairs=[(3, 4), (5, 6), (7, 8), (10, 15)],
+figure_title="$num_windows_"
+)
+fig
+save("figs/contour_plots/S=$(S)_N_windows=$num_windows_.png", fig)
+
+#================================================================================#
 
 
 
-# data_loss = norm(D_1- [getindex(u_ind,1) for u_ind in sol.u], 2)^2 + norm(D_2- [getindex(u_ind,2) for u_ind in sol.u], 2)^2
-# data_loss
-
-# if length(D_1) != length([getindex(u_ind,1) for u_ind in sol.u]) ||
-#      any([getindex(u_ind,1) for u_ind in sol.u] .> 1e3) ||
-#       any([getindex(u_ind,2) for u_ind in sol.u] .> 1e3) ||
-#       any(isnan.([getindex(u_ind,1) for u_ind in sol.u])) ||
-#        any(isnan.([getindex(u_ind,2) for u_ind in sol.u]))
-#     println("Breaking early")
-# end
 
 
 
-        # # Record animation
-        # record(fig, "./figs/animation.mp4", 1:length(results_inner); framerate=10) do num_wind
-        #     # Recompute data for current num_windows = nw
-        #     # ... [Your data computation code here] ...
+#===============================================================================
+# Animating contour plots of the loss function
+===============================================================================#
+S = 20
+num_windows = 100
+fig = Figure(size = (1800, 1800))  # Define the figure once
 
-        #     # Update plots in ax11
-        #     _, ys = integrate(odefun, results_inner[num_wind][2][1:2], results_inner[num_wind][2][3:end], t0, N, δt, cache)
-        #     scatter1.x = ts
-        #     scatter1.y = data[1:2:end]
-        #     lines1.x = 0:δt:T
-        #     lines1.y = getindex.(ys, 1)
-        #     linesdash1.x = tsall
-        #     linesdash1.y = alldata[1:2:end]
-        #     xlims!(ax11, 0.0, ts[end])  # Update x limits if needed
+num_windows_range = vcat(length(results_inner):-10:10,10:-1:1)
 
-        #     # Update plots in ax21
-        #     scatter2.x = ts
-        #     scatter2.y = data[2:2:end]
-        #     lines2.x = 0:δt:T
-        #     lines2.y = getindex.(ys, 2)
-        #     linesdash2.x = tsall
-        #     linesdash2.y = alldata[2:2:end]
-        #     xlims!(ax21, 0.0, ts[end])
+# Start recording
+record(fig, "figs/contour_plots/S=$S.mp4", num_windows_range;framerate=1) do num_windows
+    empty!(fig)  # Clear the figure before each frame
 
-        #     # Update ax31 elements
-        #     bar1.height = results_inner[num_wind][2][3:end]
-        #     scatter3.y = fhn_p
+    function fs_loss_window(x)
+        x0 = view(x, 1:2)
+        p  = view(x, 3:length(x))
+        return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, S, γ2, num_windows, false)
+    end
 
-        #     # Update title
-        #     ax11.title = "GradFree optimization, num windows: $num_wind"
-        #     println("finished the plotting of $num_wind")
-        #     println("param value is $(results_inner[num_wind][2][3:7])")
-        # end
+    best_sol = optres2.minimizer
+    param_center = [data[1:2]; fhn_p]
+
+    plot_contours!(fig, fs_loss_window, param_center;
+        ref_point=results_inner[num_windows][2], delta_range_=1, n_grids=50,
+        index_pairs=[(3, 4), (5, 6), (7, 8), (10, 15)],
+        figure_title="$num_windows"
+    )
+    text!(ax.scene, Point3f(0.0, 0.0, 0.5), text="num_windows: $num_windows", fontsize=15, color=:red)
+
+
+    println("done with num_windows = $num_windows")
+end
+
+
+#=================================================================================
+=================================================================================#
+
+
+
+
+
+#=================================================================================
+# Plotting the cost surface 
+=================================================================================#
+S=10
+num_windows_ = 1
+function fs_loss_window(x)
+    x0 = view(x, 1:2)
+    p  = view(x, 3:length(x))
+    return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, S, γ2, num_windows_, false)
+end
+
+
+fig = Figure(size=(1300, 1300))
+p1_index, p2_index = (3, 4)
+delta_range = 1
+n_grids = 100
+title = "Cost Landscape"
+center_param = [data[1:2]; fhn_p]
+ax = LScene(fig[1, 1])  # Create a 3D scene
+
+# Define parameter center values
+p1_center = center_param[p1_index]
+p2_center = center_param[p2_index]
+
+# Create parameter ranges
+p1_values = LinRange(p1_center - delta_range, p1_center + delta_range, n_grids)
+p2_values = LinRange(p2_center - delta_range, p2_center + delta_range, n_grids)
+
+# Compute loss function values
+Z = [fs_loss_window(vcat(center_param[1:p1_index-1], [p1], 
+                   center_param[p1_index+1:p2_index-1], [p2], 
+                   center_param[p2_index+1:end])) for p1 in p1_values, p2 in p2_values]
+
+# Find the min and max of Z for scaling
+# z_min, z_max = extrema(Z)
+Z_clipped = clamp.(Z, 0, 10)
+# Plot surface and store the plot object
+plt = surface!(ax, p1_values, p2_values, Z_clipped; colormap=:viridis)
+text!(ax.scene, Point3f(0.0, 0.0, 0.5), text="num_windows: $num_windows_", fontsize=15, color=:red)
+
+# Reduce the title height so it doesn't push the plot down too much
+# Label(fig[0, 1], "Cost Landscape", fontsize=30, tellheight=false)  
+
+
+# Reduce the height of the title row to bring it closer to the plot
+# rowsize!(fig.layout, 0, Auto(0.1))  # Adjust row heig
+
+# Adjust the camera/view angle
+# cam3d!(ax.scene, azimuth=100, elevation=100)  # Adjust azimuth & elevation angles
+
+fig
+save("figs/surface_plots/S=$(S)_N_windows=$num_windows_.png", fig)
+
+#=================================================================================
+=================================================================================#
+
+
+
+
+
+#=================================================================================
+# Animating the cost surface
+=================================================================================#
+S=10
+p1_index, p2_index = (3, 4)
+delta_range = 1
+n_grids = 50
+title = "Cost Landscape"
+center_param = [data[1:2]; fhn_p]
+num_windows_range = vcat(length(results_inner):-5:5,4:-1:1)
+# Start recording
+record(fig, "figs/surface_plots/S=$S.mp4", num_windows_range;framerate=1) do num_windows
+    empty!(fig)  # Clear the figure before each frame
+
+    function fs_loss_window(x)
+        x0 = view(x, 1:2)
+        p  = view(x, 3:length(x))
+        return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, S, γ2, num_windows, false)
+    end
+
+    ax = LScene(fig[1, 1])  # Create a 3D scene
+
+    # Define parameter center values
+    p1_center = center_param[p1_index]
+    p2_center = center_param[p2_index]
+
+    # Create parameter ranges
+    p1_values = LinRange(p1_center - delta_range, p1_center + delta_range, n_grids)
+    p2_values = LinRange(p2_center - delta_range, p2_center + delta_range, n_grids)
+
+    # Compute loss function values
+    Z = [fs_loss_window(vcat(center_param[1:p1_index-1], [p1], 
+                    center_param[p1_index+1:p2_index-1], [p2], 
+                    center_param[p2_index+1:end])) for p1 in p1_values, p2 in p2_values]
+
+    # Find the min and max of Z for scaling
+    # z_min, z_max = extrema(Z)
+    Z_clipped = clamp.(Z, 0, 200)
+    # Plot surface and store the plot object
+    plt = surface!(ax, p1_values, p2_values, Z_clipped; colormap=:viridis)
+
+    # Label(fig[0, 1], "num windows: $num_windows", fontsize=23, tellheight=false)  
+    # Add X-axis label BELOW the plot
+    # Label(fig[2, 1], "num windows: $num_windows", fontsize=18)
+    text!(ax.scene, Point3f(0.0, 0.0, 0.5), text="num_windows: $num_windows", fontsize=15, color=:red)
+
+    # Reduce the height of the title row to bring it closer to the plot
+    # rowsize!(fig.layout, 0, Auto(0.1))  # Adjust row heig
+
+    # Adjust the camera/view angle
+    cam3d!(ax.scene, azimuth=100, elevation=100)  # Adjust azimuth & elevation angles
+
+
+
+
+    println("done with num_windows = $num_windows")
+end
+
+
+#=================================================================================
+=================================================================================#
+
 
 
 
