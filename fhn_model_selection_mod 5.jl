@@ -1,4 +1,5 @@
 include("integrator.jl")
+include("plotting_window_size.jl")
 # Packages for plotting and default theming
 using CairoMakie
 using LinearAlgebra, Statistics
@@ -234,16 +235,16 @@ weight_func_quad(x; α=1, n=10) = α * ((x - 1)^2) / ((n - 1)^2)
 
 # plot(1:length(D_1),dum_fun.(1:length(D_1);α=0.5,n=length(D_1)))
 function forward_simulation_loss_windows(x0, p, odefun, D, t0, δt, S, 
-    γ = 0.0, window_size=1, stiff_solver=false)
+    γ = 0.0, window_size=1, stiff_solver=false; silent=false)
 # S: internal steps (only relevant when stiff_solver=false in your code)
 # D_1, D_2: the data columns for v(t) and w(t)
 
     D_1 = @view D[1:2:end]
     D_2 = @view D[2:2:end]
-    # IF window size is 1, then a window is formed between every consecutive data points.
+    #window_size is k, k+1 data points are used to form a window
+    #IF window size is 1, then a window is formed between every consecutive data points.
     # If window size is length(data)-1, the forward_simulation_loss function. 
     #Defaul behaviour is to take the window size as 1
-    println("Window size: $window_size")
     if window_size < 1 || window_size > length(D_1) - 1
         @warn "Window size out of bounds. Clamping to valid range [1, $(length(D_1) - 1)]."
         window_size = clamp(window_size, 1, length(D_1) - 1)
@@ -300,8 +301,8 @@ function forward_simulation_loss_windows(x0, p, odefun, D, t0, δt, S,
         x = cache.ycur
         copyto!(x, x0)
 
-        weight_vector = 0.01 .+weight_func_linear.(1:length(D_1);α=1,n=length(D_1))
-        # weight_vector = ones(length(D_1))
+        # weight_vector = 0.01 .+weight_func_linear.(1:length(D_1);α=1,n=length(D_1))
+        weight_vector = ones(length(D_1))
 
         # Initial condition loss
         data_loss = weight_vector[1]*(abs2(x0[1] - D_1[1]) + abs2(x0[2] - D_2[1]))
@@ -309,7 +310,7 @@ function forward_simulation_loss_windows(x0, p, odefun, D, t0, δt, S,
         # Loop over the data points
         for i = 1:length(D_1) - 1
             #Resetting the initial condition for each window using data
-            if i-1 % window_size == 0
+            if (i-1) % window_size == 0
                 copyto!(x, [D_1[i], D_2[i]])
             end
             # copyto!(x, [D_1[i], D_2[i]])
@@ -320,7 +321,9 @@ function forward_simulation_loss_windows(x0, p, odefun, D, t0, δt, S,
 
             # Detect blow-ups
             if any(abs.(x) .> 1e3) || any(isnan.(x))
-                @info "Breaking early at p value $(p), solution blew up or NaN."
+                if !silent
+                    @info "Breaking at window: $((i-1)/window_size) with window_size: $window_size, solution blew up or NaN."
+                end
                 return 1e3
             end
             # Data loss for current time point
@@ -469,7 +472,9 @@ x0_ = [data[1:2]; 0.1*randn(length(fhn_p))]
 copyto!(x0_, x0)
 # Run optimization in parallel
 
-window_size_range = 1:div(length(data),2)-1
+# window_size_range = 1:div(length(data),2)-1
+window_size_range = 1:(div(div(length(data),2)-1, 2)+5)
+
 # Pre-allocate storage for results
 results_outer = Vector{Tuple{Float64, Vector{Float64}}}(undef, num_runs)
 # results_inner = Vector{Tuple{Float64, Vector{Float64}}}(undef, div(length(data), 2) - 1)
@@ -489,6 +494,7 @@ results_inner = Dict{Int, Tuple{Float64, Vector{Float64}}}()
     # initial_guess = lower_bound .+ (upper_bound - lower_bound) .* rand(length(fhn_p))
 
     options = Optim.Options(show_trace = false, iterations = 2500)
+    best_min = 10000
     for window_size in window_size_range
         # Define the loss function
         function fs_loss_window(x)
@@ -509,8 +515,16 @@ results_inner = Dict{Int, Tuple{Float64, Vector{Float64}}}()
         optres = Optim.optimize(fs_loss_window, grad_fs_loss_window!, x0, NelderMead(), options)
         # optres = Optim.optimize(fs_loss_window, grad_fs_loss_window!, x0, BFGS(), options)
 
-        copyto!(x0, optres.minimizer)
+        #updating guess only if we get a better minimum
+        if Optim.minimum(optres) < best_min
+            best_min = Optim.minimum(optres)
+            copyto!(x0, optres.minimizer)
+        end
+        #Always updating guess with the current minimum
+        # copyto!(x0, optres.minimizer)
+        #Resetting the initial guess for the each new window size
         # copyto!(x0, x0_)
+
         println("GF, window size: $window_size, cost: $(Optim.minimum(optres))")
         results_inner[window_size] = (Optim.minimum(optres), Optim.minimizer(optres))
         
@@ -558,284 +572,99 @@ optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0_2, BFGS(), options)
 trmstr = repeat(["1", "v", "w", "v²", "vw", "w²", "v³", "v²w", "vw²", "w³"], 2)
 cvec = [repeat([Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 1.0), ], 10); repeat([Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 1.0), ], 10)]
 
+
+
+#Plotting solutions
+guess_prop_minimizer = df.Minimizer[argmin(df.Cost)]
+FS_minimizer = optres2.minimizer
+
 fig = Figure(size = (980, 480))
-
-# Plotting the GradFree simulation results
-T = ts[end] 
-N = Int(T / δt)
-_, ys = integrate(odefun, df.Minimizer[argmin(df.Cost)][1:2], df.Minimizer[argmin(df.Cost)][3:end], t0, N, δt, cache)
-ax11 = Axis(fig[1, 1])
-scatter!(ax11, ts, data[1:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
-lines!(ax11, 0:δt:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
-lines!(ax11, tsall, alldata[1:2:end], color = plotGray, linestyle = :dash)
-ylims!(ax11, -3, 3)
-xlims!(ax11, 0.0, ts[end])
-hidexdecorations!(ax11, ticks = false)
-ax21 = Axis(fig[2, 1])
-scatter!(ax21, ts, data[2:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 0.25))
-lines!(ax21, 0:δt:T, getindex.(ys, 2), color = Makie.ColorSchemes.Signac[11])
-lines!(ax21, tsall, alldata[2:2:end], color = plotGray, linestyle = :dash)
-ylims!(ax21, -0.6, 1.65)
-xlims!(ax21, 0.0, ts[end])
-ax21.xlabel = "t"
-ax21.ylabel = "w(t)"
-ax11.ylabel = "v(t)"
-ax21.xticks = 0:25:75
-
-# plot the GradFree coefficient results
-ax31 = Axis(fig[3, 1])
-barplot!(ax31, 1:Np, df.Minimizer[argmin(df.Cost)][end-Np + 1:end], color = Makie.Colors.RGBA.(cvec, 0.25), strokecolor = plotGray, strokewidth = 1)
-scatter!(ax31, 1:Np, fhn_p, color = cvec)
-ax31.xticks = (1:Np, trmstr)
-ax31.xticklabelrotation = π/4
-hlines!(ax31, 0.0, color = plotGray)
-ylims!(ax31, -1.1, 1.1)
-xlims!(ax31, 0.25, Np + 0.75)
-
-# # Plot the DA simulation results
-# T = ts[end] 
-# N = Int(T / δt)
-# _, ys = integrate(odefun, optres.minimizer[1:2], optres.minimizer[end-Np + 1:end], t0, N, δt, cache)
-# ax11 = Axis(fig[1, 1])
-# scatter!(ax11, ts, data[1:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
-# lines!(ax11, 0:δt:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
-# lines!(ax11, tsall, alldata[1:2:end], color = plotGray, linestyle = :dash)
-# ylims!(ax11, -3, 3)
-# xlims!(ax11, 0.0, ts[end])
-# hidexdecorations!(ax11, ticks = false)
-# ax21 = Axis(fig[2, 1])
-# scatter!(ax21, ts, data[2:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 0.25))
-# lines!(ax21, 0:δt:T, getindex.(ys, 2), color = Makie.ColorSchemes.Signac[11])
-# lines!(ax21, tsall, alldata[2:2:end], color = plotGray, linestyle = :dash)
-# ylims!(ax21, -0.6, 1.65)
-# xlims!(ax21, 0.0, ts[end])
-# ax21.xlabel = "t"
-# ax21.ylabel = "w(t)"
-# ax11.ylabel = "v(t)"
-# ax21.xticks = 0:25:75
-
-# # plot the DA coefficient results
-# ax31 = Axis(fig[3, 1])
-# barplot!(ax31, 1:Np, optres.minimizer[end-Np + 1:end], color = Makie.Colors.RGBA.(cvec, 0.25), strokecolor = plotGray, strokewidth = 1)
-# scatter!(ax31, 1:Np, fhn_p, color = cvec)
-# ax31.xticks = (1:Np, trmstr)
-# ax31.xticklabelrotation = π/4
-# hlines!(ax31, 0.0, color = plotGray)
-# ylims!(ax31, -1.1, 1.1)
-# xlims!(ax31, 0.25, Np + 0.75)
-
-# Plot the FS simulation results
-T = ts[end] 
-N = Int(T / δt)
-_, ys = integrate(odefun, optres2.minimizer[1:2], optres2.minimizer[end-Np + 1:end], t0, N, δt, cache)
-ax12 = Axis(fig[1, 2])
-scatter!(ax12, ts, data[1:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
-lines!(ax12, 0:δt:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
-lines!(ax12, tsall, alldata[1:2:end], color = plotGray, linestyle = :dash)
-ylims!(ax12, -3, 3)
-xlims!(ax12, 0.0, ts[end])
-hidexdecorations!(ax12, ticks = false)
-ax22 = Axis(fig[2, 2])
-scatter!(ax22, ts, data[2:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 0.25))
-lines!(ax22, 0:δt:T, getindex.(ys, 2), color = Makie.ColorSchemes.Signac[11])
-lines!(ax22, tsall, alldata[2:2:end], color = plotGray, linestyle = :dash)
-ylims!(ax22, -0.6, 1.65)
-xlims!(ax22, 0.0, ts[end])
-hideydecorations!.([ax12, ax22], ticks = false)
-ax22.xlabel = "t"
-ax22.xticks = 0:25:75
-
-# plot the FS coefficient results
-ax32 = Axis(fig[3, 2])
-barplot!(ax32, 1:Np, optres2.minimizer[end-Np + 1:end], color = Makie.Colors.RGBA.(cvec, 0.25), strokecolor = plotGray, strokewidth = 1)
-scatter!(ax32, 1:Np, fhn_p, color = cvec)
-ax32.xticks = (1:Np, trmstr)
-ax32.xticklabelrotation = π/4
-hlines!(ax32, 0.0, color = plotGray)
-ylims!(ax32, -1.1, 1.1)
-xlims!(ax32, 0.25, Np + 0.75)
-hideydecorations!(ax32, ticks = false)
-ax31.ylabel = "Parameter value"
-
-ax11.title = "GradFree multi-shoot optimization, with guess propogation"
-
-ax12.title = "Forward Simulation optimization"
-ax11.titlefont = "Helvetica Neue Light"
-ax12.titlefont = "Helvetica Neue Light"
+plotSolution!(fig, guess_prop_minimizer, FS_minimizer, ts, data, tsall, alldata, δt, t0, fhn_p, Np, odefun, cache;
+    DA=false, GFreeFS=true, FS=true, integration_method = nothing)
 fig
-# save("figs/init_seed_0.1_with_guess_propogation.png", fig)
+save("figs/window_size_plots/init_seed_0.1_with_best_guess_propogation.png", fig)
+
+
+#Animating expanding window solutions
+fig = Figure(size = (480, 480))
+save_solution_animation!(fig, results_inner, ts, data, tsall, alldata, δt, t0, fhn_p, Np, odefun, cache;
+    path_="figs/window_size_plots/best_guess_evolve.mp4", integration_method = nothing)       
 
 
 
 
-
-#================================================================================
-# Plotting the contour plots of the loss function
-================================================================================#
-function plot_contours!(fig, loss_function, center_param; ref_point=nothing, delta_range_=0.5, n_grids,
-        index_pairs=[(3, 4), (5, 6), (7, 8), (9, 10)], figure_title="Loss function landscape")
+#Saving cost_value vs window_size
+fig = Figure()
+save_cost_vs_windows!(fig, results_inner; title_= "best_guess_propogation")
+save("figs/window_size_plots/cost_vs_windows_with_best_guess_prop.png", fig)
 
 
-    ref_point = ref_point === nothing ? center_param : ref_point
-    # Grid size and variation range
-    Ngrid       = n_grids
-    delta_range = delta_range_  # How far left/right to scan from center
 
-    # Create a grid layout for proper spacing
-    grid = fig[1, 1] = GridLayout()
-    # Label(fig[0, 1], figure_title, fontsize=24, tellheight=false) 
-
-    # Store subplot axes and colorbars separately
-    axs = Matrix{Axis}(undef, 2, 2)
-    cbs = Matrix{Colorbar}(undef, 2, 2)  # Store separate colorbars for each plot
-
-    # Iterate over the four parameter pairs
-    for (idx, (p1_index, p2_index)) in enumerate(index_pairs)
-        row, col = Tuple(CartesianIndices((2, 2))[idx])  # Convert index to 2x2 grid positions
-
-        # Create subplot axis
-        ax = Axis(grid[row, 2col-1],  # Place axes in odd columns
-            xlabel = "p$(p1_index)",
-            ylabel = "p$(p2_index)",
-            title  = "loss_function (p$(p1_index), p$(p2_index)): $figure_title")
-
-        axs[row, col] = ax  # Store axis reference
-
-        # Extract central values for the parameters
-        p1_center = center_param[p1_index]
-        p2_center = center_param[p2_index]
-
-        # Define parameter ranges
-        p1_values = LinRange(p1_center - delta_range, p1_center + delta_range, Ngrid)
-        p2_values = LinRange(p2_center - delta_range, p2_center + delta_range, Ngrid)
-
-        # Preallocate a matrix to hold cost values
-        costvals = Matrix{Float64}(undef, Ngrid, Ngrid)
-
-        # Evaluate loss_function at each (p1, p2) pair
-        for i in 1:Ngrid
-            for j in 1:Ngrid
-                # Copy the best-fit parameter vector, then replace p1 and p2
-                p_trial = copy(center_param)
-                p_trial[p1_index] = p1_values[i]
-                p_trial[p2_index] = p2_values[j]
-
-                # Evaluate the loss function
-                costvals[i, j] = loss_function(p_trial)
-            end
-        end
-          # Apply clamping if limits are set
-        costvals .= clamp.(costvals, -10, 100)
-        # Plot filled contour
-        hm = contourf!(ax, p1_values, p2_values, costvals; levels=40, colormap=:viridis)
-
-        # Highlight the optimal value with a **solid red circle**
-        scatter!(ax, [center_param[p1_index]], [center_param[p2_index]], 
-                color=:red, markersize=12, strokewidth=3, strokecolor=:black)
-
-        # Highlight the ref param value with a **solid orange circle**
-        scatter!(ax, [ref_point[p1_index]], [ref_point[p2_index]], 
-                color=:orange, markersize=20, strokewidth=3, strokecolor=:black)
-        # text!(ax.scene, Point3f(0.0, 0.0, 0.5), text="window_size: $window_size_", fontsize=15, color=:red)
-        
-
-        # Define unique label for each colorbar
-        cb_label = "loss function (p$(p1_index), p$(p2_index))"
-
-        # Place colorbars **in separate adjacent columns** (even-numbered columns)
-        cbs[row, col] = Colorbar(grid[row, 2col]; colorrange=extrema(costvals), label=cb_label)
-    end
-
-    # return fig
-end
-
-#================================================================================#
-S=20
-fig = Figure(size = (1800, 1800))  # Define the figure once
-window_size_ = 1
-param_center = [data[1:2]; fhn_p]
+#Plotting contour_plots
+S_=10
+fig = Figure(size = (1800, 1800)) 
+window_size_range = sort(collect(keys(results_inner)))
+window_size_ = window_size_range[1]
 function fs_loss_window(x)
     x0 = view(x, 1:2)
     p  = view(x, 3:length(x))
     return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, S, γ2, window_size_, false)
 end
-
-plot_contours!(fig, fs_loss_window, param_center;
-ref_point=results_inner[window_size_][2], delta_range_=1, n_grids=50,
-index_pairs=[(3, 4), (5, 6), (7, 8), (10, 15)],
-figure_title="window_size: $window_size_"
-)
+center_param = [data[1:2]; fhn_p]
+ref_point = results_inner[window_size_range[end]][2]
+plot_contours!(fig, fs_loss_window, center_param; ref_point_=ref_point, delta_range_=1, n_grids_=100,
+    index_pairs_=[(3, 4), (5, 6), (7, 8), (9, 10)], figure_title_="Window size: $(window_size_range[end])")
 fig
-save("figs/contour_plots/S=$(S)_window_size=$window_size_.png", fig)
+save("figs/window_size_plots/contour_plots/S=$(S)_window_size=$window_size_.png", fig)
 
-#================================================================================#
-
-
-
-
-
-
-#===============================================================================
-# Animating contour plots of the loss function
-===============================================================================#
-S = 20
-fig = Figure(size = (1800, 1800))  # Define the figure once
-
-# num_windows_range = vcat(length(results_inner):-10:10,10:-1:1)
-window_size_range = 1:div(length(data),2)-1
-
-
-
-# Start recording
-record(fig, "figs/contour_plots/S=$S.mp4", window_size_range;framerate=1) do window_size_
+#Animating contour plots
+S_=10
+fig = Figure(size = (1200, 1200)) 
+center_param = [data[1:2]; fhn_p]
+# results_inner_trimmed = Dict(k => results_inner[k] for k in 1:10:55)
+# window_size_range = sort(collect(keys(results_inner_trimmed)))
+window_size_range = 1:5:div(length(data),2)-1
+loss_function_window = forward_simulation_loss_windows
+record(fig, "figs/window_size_plots/contour_plots/S=$S_.mp4", window_size_range;framerate=1) do window_size_
     empty!(fig)  # Clear the figure before each frame
 
     function fs_loss_window(x)
         x0 = view(x, 1:2)
         p  = view(x, 3:length(x))
-        return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, S, γ2, window_size_, false)
+        return loss_function_window(x0, p, odefun, data, 0.0, δt, S, γ2, window_size_, false; silent=true)
     end
 
-    best_sol = optres2.minimizer
-    param_center = [data[1:2]; fhn_p]
+    ref_point = haskey(results_inner, window_size_) ? results_inner[window_size_][2] : results_inner[argmin(r -> results_inner[r][1], keys(results_inner))][2]
+    loss_function = fs_loss_window
 
-    plot_contours!(fig, fs_loss_window, param_center;
-        ref_point=results_inner[window_size_][2], delta_range_=1, n_grids=50,
-        index_pairs=[(3, 4), (5, 6), (7, 8), (10, 15)],
-        figure_title="$window_size_"
-    )
-    text!(ax.scene, Point3f(0.0, 0.0, 0.5), text="window_size: $window_size_", fontsize=15, color=:red)
-
+    plot_contours!(fig, loss_function, center_param; ref_point_=ref_point, delta_range_=1, n_grids_=100,
+        index_pairs_=[(3, 4), (5, 6), (7, 8), (9, 10)], figure_title_="window_size: $window_size_")
 
     println("done with window_size = $window_size_")
 end
+# animate_contourplots!(fig, center_param, data, δt, γ2, odefun; loss_function_ = nothing, ref_point_=nothing, delta_range_=1, n_grids_=50,
+#     loss_function_window_=forward_simulation_loss_windows,
+#     index_pairs_=[(3, 4), (5, 6), (7, 8), (9, 10)], result_dict_=results_inner_trimmed, implicit_scheme_=false, figure_title="Contour ", S_=S_,
+#     path_="figs/window_size_plots/contour_plots/S=$S_.mp4")
 
 
-#=================================================================================
-=================================================================================#
+include("plotting_window_size.jl")
 
-
-
-
-
-#=================================================================================
-# Plotting the cost surface 
-=================================================================================#
-S=10
+#Plotting cost function surface
+fig = Figure(size=(1300, 1300))
+center_param = [data[1:2]; fhn_p]
+window_size_range = 1:5:div(length(data),2)-1
 window_size_ = 1
+# window_size_ = window_size_range[end]
+delta_range = 1
+n_grids = 50
 function fs_loss_window(x)
     x0 = view(x, 1:2)
     p  = view(x, 3:length(x))
-    return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, S, γ2, window_size_, false)
+    return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, 10, γ2, window_size_, false;silent=true)
 end
 
-
-fig = Figure(size=(1300, 1300))
-p1_index, p2_index = (3, 4)
-delta_range = 1
-n_grids = 100
-title = "Cost Landscape"
-center_param = [data[1:2]; fhn_p]
+p1_index, p2_index = 3,4
 ax = LScene(fig[1, 1])  # Create a 3D scene
 
 # Define parameter center values
@@ -845,60 +674,37 @@ p2_center = center_param[p2_index]
 # Create parameter ranges
 p1_values = LinRange(p1_center - delta_range, p1_center + delta_range, n_grids)
 p2_values = LinRange(p2_center - delta_range, p2_center + delta_range, n_grids)
-
 # Compute loss function values
 Z = [fs_loss_window(vcat(center_param[1:p1_index-1], [p1], 
-                   center_param[p1_index+1:p2_index-1], [p2], 
-                   center_param[p2_index+1:end])) for p1 in p1_values, p2 in p2_values]
+            center_param[p1_index+1:p2_index-1], [p2], 
+            center_param[p2_index+1:end])) for p1 in p1_values, p2 in p2_values]
 
 # Find the min and max of Z for scaling
 # z_min, z_max = extrema(Z)
 Z_clipped = clamp.(Z, 0, 10)
 # Plot surface and store the plot object
-plt = surface!(ax, p1_values, p2_values, Z_clipped; colormap=:viridis)
+surface!(ax, p1_values, p2_values, Z_clipped; colormap=:viridis)
 text!(ax.scene, Point3f(0.0, 0.0, 0.5), text="window_size: $window_size_", fontsize=15, color=:red)
 
-# Reduce the title height so it doesn't push the plot down too much
-# Label(fig[0, 1], "Cost Landscape", fontsize=30, tellheight=false)  
-
-
-# Reduce the height of the title row to bring it closer to the plot
-# rowsize!(fig.layout, 0, Auto(0.1))  # Adjust row heig
-
-# Adjust the camera/view angle
-# cam3d!(ax.scene, azimuth=100, elevation=100)  # Adjust azimuth & elevation angles
-
 fig
-save("figs/surface_plots/S=$(S)_window_size=$window_size_.png", fig)
+save("figs/window_size_plots/surface_plots/S=$(S)window_size=$window_size_.png", fig)
 
-#=================================================================================
-=================================================================================#
-
-
-
-
-
-#=================================================================================
-# Animating the cost surface
-=================================================================================#
-S=10
-p1_index, p2_index = (3, 4)
-delta_range = 1
-n_grids = 50
-title = "Cost Landscape"
+#Animating cost function surface
+fig = Figure(size=(1300, 1300))
 center_param = [data[1:2]; fhn_p]
-# num_windows_range = vcat(length(results_inner):-5:5,4:-1:1)
-window_size_range = 1:div(length(data),2)-1
-
+window_size_range = 1:5:div(length(data),2)-1
+n_grids = 50
+delta_range = 1
+p1_index, p2_index = 5,6
 
 # Start recording
-record(fig, "figs/surface_plots/S=$S.mp4", window_size_range;framerate=1) do window_size_
+record(fig, "figs/window_size_plots/surface_plots/S=$S.mp4", window_size_range;framerate=1) do window_size_
     empty!(fig)  # Clear the figure before each frame
 
     function fs_loss_window(x)
         x0 = view(x, 1:2)
         p  = view(x, 3:length(x))
-        return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, S, γ2, window_size_, false)
+        return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, S, γ2, window_size_, false;silent=true)
     end
 
     ax = LScene(fig[1, 1])  # Create a 3D scene
@@ -919,6 +725,7 @@ record(fig, "figs/surface_plots/S=$S.mp4", window_size_range;framerate=1) do win
     # Find the min and max of Z for scaling
     # z_min, z_max = extrema(Z)
     Z_clipped = clamp.(Z, 0, 200)
+
     # Plot surface and store the plot object
     plt = surface!(ax, p1_values, p2_values, Z_clipped; colormap=:viridis)
 
@@ -936,9 +743,4 @@ record(fig, "figs/surface_plots/S=$S.mp4", window_size_range;framerate=1) do win
 
     println("done with window_size = $window_size_")
 end
-
-
-#=================================================================================
-=================================================================================#
-
-
+fig
