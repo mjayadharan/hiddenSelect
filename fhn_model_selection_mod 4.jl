@@ -741,7 +741,7 @@ end
 #================================================================================#
 S=20
 fig = Figure(size = (1800, 1800))  # Define the figure once
-num_windows_ = 1
+num_windows_ = 20
 param_center = [data[1:2]; fhn_p]
 function fs_loss_window(x)
     x0 = view(x, 1:2)
@@ -774,7 +774,7 @@ fig = Figure(size = (1800, 1800))  # Define the figure once
 num_windows_range = vcat(length(results_inner):-10:10,10:-1:1)
 
 # Start recording
-record(fig, "figs/contour_plots/S=$S.mp4", num_windows_range;framerate=1) do num_windows
+record(fig, "figs/num_windows_plots/contour_plots/testing_S=$S.mp4", num_windows_range;framerate=1) do num_windows
     empty!(fig)  # Clear the figure before each frame
 
     function fs_loss_window(x)
@@ -791,7 +791,7 @@ record(fig, "figs/contour_plots/S=$S.mp4", num_windows_range;framerate=1) do num
         index_pairs=[(3, 4), (5, 6), (7, 8), (10, 15)],
         figure_title="$num_windows"
     )
-    text!(ax.scene, Point3f(0.0, 0.0, 0.5), text="num_windows: $num_windows", fontsize=15, color=:red)
+    # text!(ax.scene, Point3f(0.0, 0.0, 0.5), text="num_windows: $num_windows", fontsize=15, color=:red)
 
 
     println("done with num_windows = $num_windows")

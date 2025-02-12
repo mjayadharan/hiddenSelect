@@ -8,6 +8,7 @@ using Random
 using Base.Threads, DataFrames
 using DifferentialEquations
 using BenchmarkTools
+using Logging
 # using RiverseDiff
 # using Plots
 plotGray = Makie.Colors.colorant"#4D4D4D"
@@ -234,95 +235,114 @@ weight_func_exp(x; α=1, n=10, k=0.05) = α * (exp(k*(x - 1)) - 1) / (exp(k*(n -
 weight_func_quad(x; α=1, n=10) = α * ((x - 1)^2) / ((n - 1)^2)
 
 # plot(1:length(D_1),dum_fun.(1:length(D_1);α=0.5,n=length(D_1)))
-function forward_simulation_loss_windows(x0, p, odefun, D, t0, δt, S, 
-    γ = 0.0, window_size=1, stiff_solver=false; silent=false)
+function forward_simulation_loss_windows(x0_, p_, odefun_, D_, t0_, δt_, S_, 
+    γ_ = 0.0, window_size_=1, stiff_solver_=false; solver_=nothing,
+    abs_tol_=abstol=1e-8, rel_tol_=abstol=1e-8, adaptive_=false, silent_=false)
 # S: internal steps (only relevant when stiff_solver=false in your code)
 # D_1, D_2: the data columns for v(t) and w(t)
 
-    D_1 = @view D[1:2:end]
-    D_2 = @view D[2:2:end]
+    D_1 = @view D_[1:2:end]
+    D_2 = @view D_[2:2:end]
     #window_size is k, k+1 data points are used to form a window
     #IF window size is 1, then a window is formed between every consecutive data points.
     # If window size is length(data)-1, the forward_simulation_loss function. 
     #Defaul behaviour is to take the window size as 1
-    if window_size < 1 || window_size > length(D_1) - 1
+    if window_size_ < 1 || window_size_ > length(D_1) - 1
         @warn "Window size out of bounds. Clamping to valid range [1, $(length(D_1) - 1)]."
-        window_size = clamp(window_size, 1, length(D_1) - 1)
+        window_size_ = clamp(window_size_, 1, length(D_1) - 1)
     end
 
-    if stiff_solver
+    if stiff_solver_
         # -----------------------------------------------------
         # STIFF SOLVER BRANCH
         # -----------------------------------------------------
-        Δt = δt * S
-        final_time = t0 + Δt*(length(D_1) - 1)
-        t_eval = t0:Δt:final_time
+        x = deepcopy(x0_)
+        solver_ = solver_ === nothing ? Tsit5() : solver_
+        prob = ODEProblem(odefun_, x, (t0_, t0_+δt_))
+        t_init = t0_
+        t_final = t0_
+        Δt = δt_*S_
+        data_loss = 0.0
+        for shoot_ind in 1:window_size_:length(D_1)-1
+            t_init = t_final
+            t_final = clamp(t_init + window_size_*Δt, 0, t0_+Δt*(length(D_1) - 1))
+            copyto!(x, [D_1[shoot_ind], D_2[shoot_ind]])
+            prob = remake(prob, u0=x, tspan=(t_init, t_final), p=p_)
+            # prob = ODEProblem(odefun_, x, (t_init, t_final), p_)
 
-        # Set up the ODE problem
-        prob = ODEProblem(odefun, x0, (t0, final_time), p)
+            # sol = solve(prob, solver_; saveat=t_init:Δt:t_final, abstol=abs_tol_, reltol=rel_tol_)
+            if !silent_
+                # sol = solve(prob, solver_; saveat=t_init:Δt:t_final, abstol=abs_tol_, reltol=rel_tol_)
+                sol = solve(prob, solver_;dt=δt_, adaptive=adaptive_, saveat=t_init:Δt:t_final, abstol=abs_tol_, reltol=rel_tol_)
 
-        # Solve with a stiff solver, e.g., Rodas3
-        # sol = solve(prob, Rodas3(); saveat=t_eval, abstol=1e-5, reltol=1e-5)
-        sol = solve(prob, Tsit5(); saveat=t_eval, abstol=1e-8, reltol=1e-8)
+            else
+                sol = with_logger(NullLogger()) do
+                    solve(prob, solver_;dt=δt_, adaptive=adaptive_, saveat=t_init:Δt:t_final, abstol=abs_tol_, reltol=rel_tol_)
+                end
+            end
+
+            # println("shoot_index:", shoot_ind, ",  data considered: ", shoot_ind:clamp(shoot_ind+window_size_,1,length(D_1)), ",  time_interval ",t_init:Δt:t_final, ",  t_Final: $t_final" )
 
 
+            # # Check for blow-ups or NaNs in the solution
+            if length(shoot_ind:clamp(shoot_ind+window_size_,1,length(D_1))) != length([getindex(u_ind,1) for u_ind in sol.u]) ||
+                any([getindex(u_ind,1) for u_ind in sol.u] .> 1e3) ||
+                any([getindex(u_ind,2) for u_ind in sol.u] .> 1e3) ||
+                any(isnan.([getindex(u_ind,1) for u_ind in sol.u])) ||
+                any(isnan.([getindex(u_ind,2) for u_ind in sol.u]))
+                if !silent_
+                    @info "Solution blew up or broken at shooting node: $shoot_ind"
+                    # print(window_size_+1) != length([getindex(u_ind,1) for u_ind in sol.u]))
+                end
+                    return 1e3
+            end
+            data_loss += dot(D_1[shoot_ind:clamp(shoot_ind+window_size_,1,length(D_1))]- [getindex(u_ind,1) for u_ind in sol.u], 
+                           D_1[shoot_ind:clamp(shoot_ind+window_size_,1,length(D_1))]- [getindex(u_ind,1) for u_ind in sol.u]) 
+            + dot(D_2[shoot_ind:clamp(shoot_ind+window_size_,1,length(D_2))]- [getindex(u_ind,2) for u_ind in sol.u], 
+                           D_2[shoot_ind:clamp(shoot_ind+window_size_,1,length(D_2))]- [getindex(u_ind,2) for u_ind in sol.u])
 
-        # # Check for blow-ups or NaNs in the solution
-        if length(D_1) != length([getindex(u_ind,1) for u_ind in sol.u]) ||
-            any([getindex(u_ind,1) for u_ind in sol.u] .> 1e3) ||
-            any([getindex(u_ind,2) for u_ind in sol.u] .> 1e3) ||
-            any(isnan.([getindex(u_ind,1) for u_ind in sol.u])) ||
-            any(isnan.([getindex(u_ind,2) for u_ind in sol.u]))
-            @info "Breaking early at the p value: $(p)"
-                return 1e3
+            #optionally setting the initial condition for the next window to the final condition of the previous window
+            # x = sol.u[end]
         end
 
-
-        # Sum-of-squares difference to data
-        # D_1[i] is v-data, D_2[i] is w-data, and sol.u[i][1], sol.u[i][2] the solution states
-        # data_loss = 0.0
-        # for (i, t) in enumerate(t_eval)
-        #     data_loss += abs2(sol.u[i][1] - D_1[i]) + abs2(sol.u[i][2] - D_2[i])
-        # end
-
-        data_loss = norm(D_1- [getindex(u_ind,1) for u_ind in sol.u], 2)^2 + norm(D_2- [getindex(u_ind,2) for u_ind in sol.u], 2)^2
         # Add smooth L1 regularization if desired
-        sparse_loss = sum(γ * smoothl1(pi) for pi in p)
+        sparse_loss = sum(γ_ * smoothl1(pi) for pi in p_)
 
         # Normalize by number of data points (optional) and return
-        return data_loss/length(t_eval) + sparse_loss/length(p)
+        return data_loss/(2*length(D_1)) + sparse_loss/length(p_)
 
     else
         # -----------------------------------------------------
         # NON-STIFF BRANCH (YOUR ORIGINAL LOOP-BASED APPROACH)
         # -----------------------------------------------------
         # Integration cache
-        cache = Tsit5Cache(x0)
+        cache = Tsit5Cache(x0_)
         x = cache.ycur
-        copyto!(x, x0)
+        copyto!(x, x0_)
 
         # weight_vector = 0.01 .+weight_func_linear.(1:length(D_1);α=1,n=length(D_1))
         weight_vector = ones(length(D_1))
 
         # Initial condition loss
-        data_loss = weight_vector[1]*(abs2(x0[1] - D_1[1]) + abs2(x0[2] - D_2[1]))
+        data_loss = weight_vector[1]*(abs2(x0_[1] - D_1[1]) + abs2(x0_[2] - D_2[1]))
         integration_method = integration_step!
         # Loop over the data points
         for i = 1:length(D_1) - 1
             #Resetting the initial condition for each window using data
-            if (i-1) % window_size == 0
+            if (i-1) % window_size_ == 0
                 copyto!(x, [D_1[i], D_2[i]])
             end
             # copyto!(x, [D_1[i], D_2[i]])
             # Internal time steps
-            for j = 1:S
-                integration_method(cache, odefun, x, t0, p, δt, false)
+            for j = 1:S_
+                # println("S_: $S_, j: $j")
+                integration_method(cache, odefun_, x, t0_, p_, δt_, false)
             end
 
             # Detect blow-ups
             if any(abs.(x) .> 1e3) || any(isnan.(x))
-                if !silent
-                    @info "Breaking at window: $((i-1)/window_size) with window_size: $window_size, solution blew up or NaN."
+                if !silent_
+                    @info "Breaking at window: $((i-1)/window_size_) with window_size: $window_size_, solution blew up or NaN."
                 end
                 return 1e3
             end
@@ -331,9 +351,9 @@ function forward_simulation_loss_windows(x0, p, odefun, D, t0, δt, S,
         end
 
         # Sparsity term
-        sparse_loss = sum(γ * smoothl1(pi) for pi in p)
+        sparse_loss = sum(γ_ * smoothl1(pi) for pi in p_)
 
-        return data_loss / (2*length(D_1)) + sparse_loss / length(p)
+        return data_loss / (2*length(D_1)) + sparse_loss / length(p_)
     end
 end
 
@@ -372,7 +392,7 @@ function data_assimilation_loss(X, p, odefun, data, α, β, δt, S, γ = 0.0)
         x3 = X[1 + offset]
         x4 = X[2 + offset]
         # Perform integration step 
-        x = integration_step(cache, odefun, x, t0, p, δt, false)
+        x = integration_step(cache, odefun, x, t0_, p, δt, false)
         model_loss += abs2(x3 - x[1])
         model_loss += abs2(x4 - x[2])
         # Update the current state 
@@ -601,43 +621,57 @@ save("figs/window_size_plots/cost_vs_windows_with_best_guess_prop.png", fig)
 
 
 #Plotting contour_plots
-S_=10
+S=100
+δt = Δt / S     # Time step 
 fig = Figure(size = (1800, 1800)) 
 window_size_range = sort(collect(keys(results_inner)))
-window_size_ = window_size_range[1]
+window_size = window_size_range[1]
+window_size = 1
+num_grids=50
+delta_range=20
+# solver = Rosenbrock23()
+solver = nothing
 function fs_loss_window(x)
     x0 = view(x, 1:2)
     p  = view(x, 3:length(x))
-    return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, S, γ2, window_size_, false)
+    return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, S, γ2, window_size, true;
+    solver_=solver, silent_=true, adaptive_=false)
 end
 center_param = [data[1:2]; fhn_p]
+# center_param = [data[1:2]; -1.0.*ones(length(fhn_p))]
+
 ref_point = results_inner[window_size_range[end]][2]
-plot_contours!(fig, fs_loss_window, center_param; ref_point_=ref_point, delta_range_=1, n_grids_=100,
-    index_pairs_=[(3, 4), (5, 6), (7, 8), (9, 10)], figure_title_="Window size: $(window_size_range[end])")
+plot_contours!(fig, fs_loss_window, center_param; ref_point_=ref_point, delta_range_=delta_range, n_grids_=num_grids,
+    index_pairs_=[(3, 4), (5, 6), (7, 8), (9, 10)], figure_title_="Window size: $window_size")
 fig
-save("figs/window_size_plots/contour_plots/S=$(S)_window_size=$window_size_.png", fig)
+save("figs/window_size_plots/contour_plots/S=$(S)_window_size=$window_size.png", fig)
 
 #Animating contour plots
-S_=10
+S=10
+δt = Δt / S     # Time step 
 fig = Figure(size = (1200, 1200)) 
 center_param = [data[1:2]; fhn_p]
 # results_inner_trimmed = Dict(k => results_inner[k] for k in 1:10:55)
 # window_size_range = sort(collect(keys(results_inner_trimmed)))
+n_grids = 50
 window_size_range = 1:5:div(length(data),2)-1
-loss_function_window = forward_simulation_loss_windows
-record(fig, "figs/window_size_plots/contour_plots/S=$S_.mp4", window_size_range;framerate=1) do window_size_
+# solver = Rosenbrock23()
+solver = nothing
+record(fig, "figs/window_size_plots/contour_plots/Rosenbrock23_S=$S.mp4", window_size_range;framerate=1) do window_size_
     empty!(fig)  # Clear the figure before each frame
 
     function fs_loss_window(x)
         x0 = view(x, 1:2)
         p  = view(x, 3:length(x))
-        return loss_function_window(x0, p, odefun, data, 0.0, δt, S, γ2, window_size_, false; silent=true)
+        return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, S, γ2, window_size_, true; silent_=true,
+        solver_=solver, adaptive_=false)
+        # return loss_function_window(x0, p, odefun, data, 0.0, δt, S, 10, window_size_, false; silent=true)
     end
 
     ref_point = haskey(results_inner, window_size_) ? results_inner[window_size_][2] : results_inner[argmin(r -> results_inner[r][1], keys(results_inner))][2]
     loss_function = fs_loss_window
 
-    plot_contours!(fig, loss_function, center_param; ref_point_=ref_point, delta_range_=1, n_grids_=100,
+    plot_contours!(fig, loss_function, center_param; ref_point_=ref_point, delta_range_=1, n_grids_=n_grids,
         index_pairs_=[(3, 4), (5, 6), (7, 8), (9, 10)], figure_title_="window_size: $window_size_")
 
     println("done with window_size = $window_size_")
@@ -651,17 +685,24 @@ end
 include("plotting_window_size.jl")
 
 #Plotting cost function surface
+S=10
+δt = Δt / S     # Time step 
 fig = Figure(size=(1300, 1300))
-center_param = [data[1:2]; fhn_p]
+# center_param = [data[1:2]; fhn_p]
+center_param = [data[1:2]; -1.0.*ones(length(fhn_p))]
 window_size_range = 1:5:div(length(data),2)-1
-window_size_ = 1
+window_size_ = 2
 # window_size_ = window_size_range[end]
 delta_range = 1
-n_grids = 50
+# n_grids = 50
+solver = Rosenbrock23()
+# solver = nothing
 function fs_loss_window(x)
     x0 = view(x, 1:2)
     p  = view(x, 3:length(x))
-    return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, 10, γ2, window_size_, false;silent=true)
+    return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, S, γ2, window_size_, true; silent_=true,
+    solver_=solver, adaptive_=true)
+    # return loss_function_window(x0, p, odefun, data, 0.0, δt, S, 10, window_size_, false; silent=true)
 end
 
 p1_index, p2_index = 3,4
@@ -698,13 +739,13 @@ delta_range = 1
 p1_index, p2_index = 5,6
 
 # Start recording
-record(fig, "figs/window_size_plots/surface_plots/S=$S.mp4", window_size_range;framerate=1) do window_size_
+record(fig, "figs/window_size_plots/surface_plots/S=$S_.mp4", window_size_range;framerate=1) do window_size_
     empty!(fig)  # Clear the figure before each frame
 
     function fs_loss_window(x)
         x0 = view(x, 1:2)
         p  = view(x, 3:length(x))
-        return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, S, γ2, window_size_, false;silent=true)
+        return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, S, γ2, window_size_, false;silent_=true)
     end
 
     ax = LScene(fig[1, 1])  # Create a 3D scene
@@ -744,3 +785,116 @@ record(fig, "figs/window_size_plots/surface_plots/S=$S.mp4", window_size_range;f
     println("done with window_size = $window_size_")
 end
 fig
+
+
+
+#Looking at Hessians
+#Plotting contour_plots
+H_vector = [Matrix{Float64}(undef, 22, 22) for _ in 1:10]
+eig_values_vector = [Vector{Float64}(undef, 22) for _ in 1:10]
+eig_vectors_vector = [Matrix{Float64}(undef, 22, 22) for _ in 1:10]
+
+for (ind,S) in enumerate(10:10:100)
+    # S=100
+    println(S)
+    δt = Δt / S     # Time step 
+    fig = Figure(size = (1800, 1800)) 
+    window_size_range = sort(collect(keys(results_inner)))
+    window_size = window_size_range[1]
+    window_size = 5
+    num_grids=50
+    delta_range=1
+    # solver = Rosenbrock23()
+    solver = Rodas5()
+
+    # solver = nothing
+    function fs_loss_window(x)
+        x0 = view(x, 1:2)
+        p  = view(x, 3:length(x))
+        return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, S, γ2, window_size, true;
+        solver_=solver, silent_=true, adaptive_=false)
+    end
+    function hessian_fs_loss_window(x::AbstractVector{<:Real})
+        ForwardDiff.hessian(fs_loss_window, x)
+    end
+
+    center_param = [data[1:2]; fhn_p]
+    # center_param = [data[1:2]; -1.0.*ones(length(fhn_p))]
+
+    ref_point = results_inner[window_size_range[end]][2]
+    # plot_contours!(fig, fs_loss_window, center_param; ref_point_=ref_point, delta_range_=delta_range, n_grids_=num_grids,
+    #     index_pairs_=[(3, 4), (5, 6), (7, 8), (9, 10)], figure_title_="Window size: $window_size")
+    # fig
+
+    # H_vector[ind]= hessian_fs_loss_window(vcat([data[1],data[2]],zeros(length(fhn_p))))
+    H_vector[ind]= hessian_fs_loss_window(ref_point)
+
+
+    eig_values_vector[ind], eig_vectors_vector[ind] = eigen(H_vector[ind])
+end
+
+for eig_values in eig_values_vector
+    sort(eig_values)
+end
+fig = Figure(size = (900, 900))
+ax = Axis(fig[1, 1], title="Visualization of 10 Eigenvalue Vectors", xlabel="Eigenvalue Index", ylabel="Eigenvalue")
+colors = Makie.ColorSchemes.tab20
+# colors_ = distinguishable_colors(num_vectors)
+# Create a scatter plot
+# plot(title="Visualization of 10 Eigenvalue Vectors", xlabel="Eigenvalue Index", ylabel="Eigenvalue")
+
+for (i,eigen_values) in enumerate(eig_values_vector)
+    scatter!(ax,1:22, eigen_values, color=colors[i],label="Vector $i", markersize=5)
+end
+fig
+
+
+# Create a figure
+fig = Figure(resolution=(800, 1000))
+ax = Axis(fig[1, 1], title="Visualization of 10 Eigenvalue Vectors", xlabel="Eigenvalue Index", ylabel="Eigenvalue")
+
+# Store legend entries
+scatter_plots = []
+colors = Makie.ColorSchemes.tab20
+# Scatter plot for each vector with a different color
+for (i,eigen_values) in enumerate(eigen_values_vector_explicit)
+    plt = scatter!(ax,1:22, eigen_values, color=colors[i],label="Vector $i", markersize=5)
+    push!(scatter_plots, (plt, "Vector $i"))  # Store plot & label for legend
+end
+fig
+
+sum_=0
+for (i,eigen_values) in enumerate(eig_values_vector)
+    sum_local= dot(eigen_values-eig_values_vector[1], eigen_values-eig_values_vector[1])
+    println("Eigenvalue Vector $i: ", sum_local)
+    sum_+=sum_local
+end
+sum_
+
+eigen_values_vector_explicit = deepcopy(eig_values_vector)
+
+sum_=0
+for (i,eigen_values) in enumerate(eig_values_vector)
+    sum_local= dot(eigen_values_vector_explicit[i]-eig_values_vector[i], eigen_values_vector_explicit[i]-eig_values_vector[i])
+    println("Eigenvalue Vector $i: ", sum_local)
+    sum_+=sum_local
+end
+sum_
+
+
+S=100
+function fs_loss_window(x)
+    x0 = view(x, 1:2)
+    p  = view(x, 3:length(x))
+    return forward_simulation_loss_windows(x0, p, odefun, data, 0.0, δt, S, γ2, window_size, true;
+    solver_=solver, silent_=true, adaptive_=false)
+end
+function hessian_fs_loss_window(x::AbstractVector{<:Real})
+    ForwardDiff.hessian(fs_loss_window, x)
+end
+
+center_param = [data[1:2]; fhn_p]
+# center_param = [data[1:2]; -1.0.*ones(length(fhn_p))]
+
+ref_point = results_inner[window_size_range[end]][2]
+# hessian_fs_loss_window(ref_point)
