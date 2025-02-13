@@ -430,9 +430,12 @@ function data_assimilation_loss(X, p, odefun, data, α, β, δt, S, γ = 0.0)
     return (α * data_loss + β * model_loss) / length(X) + sparse_loss / length(p)
 end
 
+
+function dummy_fun()
+end
 ## Set up the loss functions and automatic differentiation
 # Parameters 
-S = 10       # Number of internal time steps
+S = 100      # Number of internal time steps
 δt = Δt / S     # Time step 
 α = 1.0         # Data loss weight 
 β = 100.0       # Model loss weight 
@@ -512,15 +515,20 @@ copyto!(x0_, x0)
 # Run optimization in parallel
 
 # window_size_range = 1:div(length(data),2)-1
-window_size_range = 1:(div(div(length(data),2)-1, 2)+5)
+# window_size_range = 1:(div(div(length(data),2)-1, 2)+5)
+window_size_range = vcat(1:(div(div(length(data),2)-1, 2)+5), [100])
+
 
 # Pre-allocate storage for results
 results_outer = Vector{Tuple{Float64, Vector{Float64}}}(undef, num_runs)
 # results_inner = Vector{Tuple{Float64, Vector{Float64}}}(undef, div(length(data), 2) - 1)
 results_inner = Dict{Int, Tuple{Float64, Vector{Float64}}}()
 unstable_points_dict = Dict()
-solver = Tsit5()
+# solver = Tsit5()
 # solver = Rosenbrock23()
+# solver = ImplicitEuler()
+solver = RadauIIA5()
+
 @threads for i in 1:num_runs
 # for i in 1:num_runs
 
@@ -536,6 +544,7 @@ solver = Tsit5()
 
     options = Optim.Options(show_trace = false, iterations = 2500)
     best_min = 10000
+
     for window_size in window_size_range
         # Define the loss function
         unstable_points = []
@@ -543,7 +552,7 @@ solver = Tsit5()
             x0 = view(x, 1:2)
             p  = view(x, 3:length(x))
             return forward_simulation_loss_windows(x0, unstable_points, p, odefun, data, 0.0, δt, S, γ2, window_size, true;
-            solver_=solver, silent_=false, adaptive_=false, abs_tol_=1e-3, rel_tol_=1e-2)
+            solver_=solver, silent_=false, adaptive_=false, abs_tol_=1e-8, rel_tol_=1e-8)
         end
         # Compute the gradient of fs_loss_wrapper with respect to x0_full.
         function grad_fs_loss_window!(g,x)
@@ -556,18 +565,18 @@ solver = Tsit5()
         # optres = Optim.optimize(fs_loss_window, grad_fs_loss_window!, x0, BFGS(), options)
 
         #updating guess only if we get a better minimum
-        if Optim.minimum(optres) < best_min
-            best_min = Optim.minimum(optres)
-            copyto!(x0, optres.minimizer)
-        end
+        # if Optim.minimum(optres) < best_min
+        #     best_min = Optim.minimum(optres)
+        #     copyto!(x0, optres.minimizer)
+        # end
         #Always updating guess with the current minimum
         # copyto!(x0, optres.minimizer)
         #Resetting the initial guess for the each new window size
-        # copyto!(x0, x0_)
+        copyto!(x0, x0_)
 
         println("GF, window size: $window_size, cost: $(Optim.minimum(optres))")
         results_inner[window_size] = (Optim.minimum(optres), Optim.minimizer(optres))
-        unstable_points_dict[window_size] = unstable_points
+        unstable_points_dict[window_size] = deepcopy(unstable_points)
     end
 
     # # Store seed, cost function value, and minimizer
@@ -983,16 +992,6 @@ function jac_odefun(y, p)
     ForwardDiff.jacobian(y_ -> odefun_new(y_, p), y)
 end
 
-jac_list = []
-
-for param in unstable_points
-    push!(jac_list, jac_odefun(param[1:2], param[3:end]))
-end
-
-jac_eig_list = []
-for jac_ in jac_list
-    push!(jac_eig_list, eigvals(jac_))
-end
 
 function get_eigens(unstable_points_; real_only=false)
     jac_list_ = [jac_odefun(param[1:2], param[3:end]) for param in unstable_points_]
@@ -1003,63 +1002,45 @@ function get_eigens(unstable_points_; real_only=false)
     end
 end
 
-minimum([minimum(maximum.(get_eigens(unstable_points_dict[window_size];real_only=true))) for window_size in 20:50])
 
 
+fig = Figure(size=(800,700))
 
+record(fig, "figs/window_size_plots/stability/implicit_no_guess_delta_t=$δt _S=$S.mp4", window_size_range; framerate=1) do window_size_
+    empty!(fig)  # Clear the figure before each frame
+    
+    # Create Axis
+    ax = Axis(fig[1, 1], xlabel="Real", ylabel="Imaginary", 
+              title="h_δt, δt=$δt window_size=$window_size_")
+    
+    ax.xticksvisible = true
+    ax.yticksvisible = true
 
+    # If there are unstable points, process them
+    if length(unstable_points_dict[window_size_]) > 0
+        eigen_values_unstable = get_eigens(unstable_points_dict[window_size_]; real_only=false)
 
-# Generate stability region data for Tsit5()
-λ_real = range(-4, 2, length=400)  # Real axis
-λ_imag = range(-3, 3, length=400)  # Imaginary axis
-Z = [λr + im * λi for λr in λ_real, λi in λ_imag]  # Complex grid
+        real_val = δt .* real.(Iterators.flatten(eigen_values_unstable))
+        imag_val = δt .* imag.(Iterators.flatten(eigen_values_unstable))
 
-# Compute stability function |R(z)| <= 1
-R = build_stability_function(Tsit5())  # Stability function
-S = abs.(R.(Z)) .<= 1  # Stability region mask (boolean)
+        # Compute dynamic limits
+        x_min, x_max = extrema(real_val)  # Get min and max of real values
+        y_min, y_max = extrema(imag_val)  # Get min and max of imaginary values
 
-# Create figure
-fig = Figure(resolution=(600, 500))
-ax = Axis(fig[1, 1], xlabel="Re(λ)", ylabel="Im(λ)", title="Stability Region of Tsit5()")
+        # Ensure some padding for better visibility
+        padding = 0.1 * max(x_max - x_min, y_max - y_min, 1)  # Avoid zero-padding
+        xlims!(ax, x_min - padding, x_max + padding)
+        ylims!(ax, y_min - padding, y_max + padding)
 
-# Plot stability region as a heatmap
-hm = heatmap!(ax, λ_real, λ_imag, S'; colormap=:blues, interpolate=false)
-
-# Display the figure
-display(fig)
-
-using OrdinaryDiffEq
-# Define the Butcher tableau of Tsit5() explicitly
-A = [
-    0  0  0  0  0  0
-    1/5  0  0  0  0  0
-    3/40  9/40  0  0  0  0
-    44/45  -56/15  32/9  0  0  0
-    19372/6561  -25360/2187  64448/6561  -212/729  0  0
-    9017/3168  -355/33  46732/5247  49/176  -5103/18656  0
-]
-
-b = [35/384, 0, 500/1113, 125/192, -2187/6784, 11/84]  # Final step weights
-
-# Define the stability function for an explicit RK method
-function stability_function(A, b, z)
-    I_mat = LinearAlgebra.I(size(A, 1))  # Correct way to get an identity matrix
-    e = ones(size(A, 1))                 # Vector of ones
-    return 1 + z * dot(b, (I_mat - z * A) \ e)  # Compute R(z)
+        # Scatter plot for complex numbers
+        scatter!(ax, real_val, imag_val, color=:blue, markersize=10, label="Complex Points")
+        lines!(ax, [-4, 4], [0, 0], color=:black, )
+        lines!(ax, [0, 0], [-4, 4], color=:black, )
+    else
+        # If there are no points, reset limits to a default range
+        xlims!(ax, -1, 1)
+        ylims!(ax, -1, 1)
+        lines!(ax, [-10, 10], [0, 0], color=:black, )
+        lines!(ax, [0, 0], [-10, 10], color=:black, )
+    end
 end
-
-# Generate the stability region grid
-λ_real = range(-4, 2, length=400)  # Real axis
-λ_imag = range(-3, 3, length=400)  # Imaginary axis
-Z = [λr + im * λi for λr in λ_real, λi in λ_imag]  # Complex plane grid
-
-# Compute the stability region mask |R(z)| <= 1
-S = abs.(stability_function.(Ref(A), Ref(b), Z)) .<= 1
-
-# Plot the stability region with CairoMakie
-fig = Figure(resolution=(600, 500))
-ax = Axis(fig[1, 1], xlabel="Re(λ)", ylabel="Im(λ)", title="Stability Region of Tsit5()")
-heatmap!(ax, λ_real, λ_imag, S'; colormap=:blues, interpolate=false)
-
-# Display figure
-display(fig)
