@@ -27,6 +27,9 @@ const Np = 20
 fhn_p = [0.5, 1.0, -1.0, 0.0, 0.0, 0.0, -1/3, 0.0, 0.0, 0.0, 0.7/12.5, 1.0/12.5, -0.8/12.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 fhn_y0 = [1.0, 1.0]
 
+prob_fhn = ODEProblem(odefun, fhn_y0, (0.0, 100.0), fhn_p)
+sol_fhn = solve(prob_fhn, Tsit5(), abstol=1e-8, reltol=1e-8)
+
 ## Integrate FHN data
 cache = Tsit5Cache(fhn_y0) # Build cache
 δt = 0.01                  # Find time step
@@ -334,7 +337,7 @@ function forward_simulation_loss_windows(x0_, unstable_param, p_, odefun_, D_, t
         cache = Tsit5Cache(x0_)
         x = cache.ycur
         copyto!(x, x0_)
-        x_temp = deepcopy(x0)
+        x_temp = deepcopy(x0_)
 
         # weight_vector = 0.01 .+weight_func_linear.(1:length(D_1);α=1,n=length(D_1))
         weight_vector = ones(length(D_1))
@@ -435,7 +438,7 @@ function dummy_fun()
 end
 ## Set up the loss functions and automatic differentiation
 # Parameters 
-S = 100      # Number of internal time steps
+S = 500    # Number of internal time steps
 δt = Δt / S     # Time step 
 α = 1.0         # Data loss weight 
 β = 100.0       # Model loss weight 
@@ -516,7 +519,8 @@ copyto!(x0_, x0)
 
 # window_size_range = 1:div(length(data),2)-1
 # window_size_range = 1:(div(div(length(data),2)-1, 2)+5)
-window_size_range = vcat(1:(div(div(length(data),2)-1, 2)+5), [100])
+# window_size_range = vcat(1:(div(div(length(data),2)-1, 2)+5), [100])
+window_size_range = [1,50,100]
 
 
 # Pre-allocate storage for results
@@ -525,9 +529,9 @@ results_outer = Vector{Tuple{Float64, Vector{Float64}}}(undef, num_runs)
 results_inner = Dict{Int, Tuple{Float64, Vector{Float64}}}()
 unstable_points_dict = Dict()
 # solver = Tsit5()
-# solver = Rosenbrock23()
+solver = Rosenbrock23()
 # solver = ImplicitEuler()
-solver = RadauIIA5()
+# solver = RadauIIA5()
 
 @threads for i in 1:num_runs
 # for i in 1:num_runs
@@ -551,8 +555,8 @@ solver = RadauIIA5()
         function fs_loss_window(x)
             x0 = view(x, 1:2)
             p  = view(x, 3:length(x))
-            return forward_simulation_loss_windows(x0, unstable_points, p, odefun, data, 0.0, δt, S, γ2, window_size, true;
-            solver_=solver, silent_=false, adaptive_=false, abs_tol_=1e-8, rel_tol_=1e-8)
+            return forward_simulation_loss_windows(x0, unstable_points, p, odefun, data, 0.0, δt, S, γ2, window_size, false;
+            solver_=solver, silent_=false, adaptive_=true, abs_tol_=1e-8, rel_tol_=1e-8)
         end
         # Compute the gradient of fs_loss_wrapper with respect to x0_full.
         function grad_fs_loss_window!(g,x)
@@ -1002,11 +1006,15 @@ function get_eigens(unstable_points_; real_only=false)
     end
 end
 
+function get_ode_values(unstable_points_)
+    return [odefun_new(param[1:2], param[3:end]) for param in unstable_points_]
+end
+
 
 
 fig = Figure(size=(800,700))
 
-record(fig, "figs/window_size_plots/stability/implicit_no_guess_delta_t=$δt _S=$S.mp4", window_size_range; framerate=1) do window_size_
+record(fig, "figs/window_size_plots/stability/no_guess_delta_t=$δt _S=$S.mp4", window_size_range; framerate=1) do window_size_
     empty!(fig)  # Clear the figure before each frame
     
     # Create Axis
@@ -1019,23 +1027,45 @@ record(fig, "figs/window_size_plots/stability/implicit_no_guess_delta_t=$δt _S=
     # If there are unstable points, process them
     if length(unstable_points_dict[window_size_]) > 0
         eigen_values_unstable = get_eigens(unstable_points_dict[window_size_]; real_only=false)
-
+        ode_rhs_values = get_ode_values(unstable_points_dict[window_size_])
+        ode_rhs_values_all_eig = [[val, val] for val in ode_rhs_values]
+        
+        ode_rhs_mag = norm.(Iterators.flatten(ode_rhs_values_all_eig))
+        
         real_val = δt .* real.(Iterators.flatten(eigen_values_unstable))
         imag_val = δt .* imag.(Iterators.flatten(eigen_values_unstable))
-
+        
         # Compute dynamic limits
         x_min, x_max = extrema(real_val)  # Get min and max of real values
         y_min, y_max = extrema(imag_val)  # Get min and max of imaginary values
-
+        
         # Ensure some padding for better visibility
         padding = 0.1 * max(x_max - x_min, y_max - y_min, 1)  # Avoid zero-padding
         xlims!(ax, x_min - padding, x_max + padding)
         ylims!(ax, y_min - padding, y_max + padding)
 
-        # Scatter plot for complex numbers
-        scatter!(ax, real_val, imag_val, color=:blue, markersize=10, label="Complex Points")
+        
+        # color_range = (minimum(ode_rhs_mag), maximum(ode_rhs_mag))
+        color_range = (0,10)
+        
+                # Handle case where min and max are identical (to avoid division by zero in colormap)
+        if color_range[1] == color_range[2]
+            color_range = (color_range[1], color_range[1] + 1e-6)
+        end
+        
+        # Scatter plot for complex numbers, colored by `ode_rhs_mag`
+        scatter!(ax, real_val, imag_val, 
+                    color=ode_rhs_mag, colormap=:viridis, 
+                    markersize=10, colorrange=color_range)
+        # scatter!(ax, real_val, imag_val, color=ode_rhs_mag, colormap=:viridis, markersize=10)
         lines!(ax, [-4, 4], [0, 0], color=:black, )
         lines!(ax, [0, 0], [-4, 4], color=:black, )
+        
+        # Add labels (text) for each scatter point
+        text!(ax, x_max, y_max, text="(min, max): $(round(minimum(ode_rhs_mag), digits=4)), $(round(maximum(ode_rhs_mag), digits=4))", fontsize=14, color=:black)
+        
+        # Add a colorbar to the figure
+        Colorbar(fig[1, 2], colormap=:viridis, limits=color_range, label="ODE RHS Magnitude")
     else
         # If there are no points, reset limits to a default range
         xlims!(ax, -1, 1)
@@ -1044,3 +1074,7 @@ record(fig, "figs/window_size_plots/stability/implicit_no_guess_delta_t=$δt _S=
         lines!(ax, [0, 0], [-10, 10], color=:black, )
     end
 end
+
+
+
+
