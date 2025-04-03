@@ -1,5 +1,6 @@
 include("integrator.jl")
 include("plotting_window_size.jl")
+include("helper_functions.jl")
 # Packages for plotting and default theming
 using CairoMakie
 using LinearAlgebra, Statistics
@@ -661,21 +662,7 @@ end
 
 #========================================================================
 ==============================================================#
-# Utility function to generate all multi-indices (as vectors of exponents)
-# for monomials in d variables of total degree <= deg.
-function multiindices(dim::Int, deg::Int)
-    if dim == 1
-        return [[i] for i in 0:deg]
-    else
-        indices = Vector{Vector{Int}}()
-        for i in 0:deg
-            for sub in multiindices(dim-1, deg - i)
-                push!(indices, [i; sub])
-            end
-        end
-        return indices
-    end
-end
+include("helper_functions.jl")
 
 # Function to evaluate all monomials at x given a list of multi-indices.
 # Each monomial is given by: x₁^(α₁)*x₂^(α₂)*...*x_d^(α_d)
@@ -746,6 +733,13 @@ axislegend(ax)
 fig
 
 
+
+# Example usage:
+mapping = multiindex_mapping(2, 3)  # 2D system, cubic polynomials
+for (idx, mono) in mapping
+    print("Multiindex ", idx, " -> ", mono, ", ")
+    println(" ")
+end
 
 
 
