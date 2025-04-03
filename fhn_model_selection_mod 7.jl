@@ -61,7 +61,7 @@ Nd = size(data, 2)
 data = data[:, ind1:ind2][:]
 # Add noise
 Random.seed!(1287436679)
-noise_sigma = 0.25
+noise_sigma = 0.05
 data[1:2:end] .+= noise_sigma*std(data[1:2:end])*randn(length(data[1:2:end]))
 data[2:2:end] .+= noise_sigma*std(data[2:2:end])*randn(length(data[2:2:end]))
 # Data time step
@@ -512,8 +512,8 @@ num_runs = 1
 
 
 
-x0 = [data[1:2]; 0.1*randn(length(fhn_p))]
-x0_ = [data[1:2]; 0.1*randn(length(fhn_p))]
+x0 = [data[1:2]; 0.01*randn(length(fhn_p))]
+x0_ = [data[1:2]; 0.01*randn(length(fhn_p))]
 copyto!(x0_, x0)
 # Run optimization in parallel
 
@@ -635,21 +635,115 @@ fig = Figure(size = (980, 480))
 plotSolution!(fig, guess_prop_minimizer, FS_minimizer, ts, data, tsall, alldata, δt, t0, fhn_p, Np, odefun, cache;
     DA=false, GFreeFS=true, FS=true, integration_method = nothing)
 fig
-save("figs/window_size_plots/init_seed_0.1_with_best_guess_propogation.png", fig)
+# save("figs/window_size_plots/init_seed_0.1_with_best_guess_propogation.png", fig)
 
 
-#Animating expanding window solutions
-fig = Figure(size = (480, 480))
-save_solution_animation!(fig, results_inner, ts, data, tsall, alldata, δt, t0, fhn_p, Np, odefun, cache;
-    path_="figs/window_size_plots/best_guess_evolve.mp4", integration_method = nothing)       
+plot_extra = false
+if plot_extra
+    #Animating expanding window solutions
+    fig = Figure(size = (480, 480))
+    save_solution_animation!(fig, results_inner, ts, data, tsall, alldata, δt, t0, fhn_p, Np, odefun, cache;
+        path_="figs/window_size_plots/best_guess_evolve.mp4", integration_method = nothing)       
 
 
 
 
-#Saving cost_value vs window_size
+
+    #Saving cost_value vs window_size
+    fig = Figure()
+    save_cost_vs_windows!(fig, results_inner; title_= "best_guess_propogation")
+    save("figs/window_size_plots/cost_vs_windows_with_best_guess_prop.png", fig)
+end
+
+
+
+
+
+#========================================================================
+==============================================================#
+# Utility function to generate all multi-indices (as vectors of exponents)
+# for monomials in d variables of total degree <= deg.
+function multiindices(dim::Int, deg::Int)
+    if dim == 1
+        return [[i] for i in 0:deg]
+    else
+        indices = Vector{Vector{Int}}()
+        for i in 0:deg
+            for sub in multiindices(dim-1, deg - i)
+                push!(indices, [i; sub])
+            end
+        end
+        return indices
+    end
+end
+
+# Function to evaluate all monomials at x given a list of multi-indices.
+# Each monomial is given by: x₁^(α₁)*x₂^(α₂)*...*x_d^(α_d)
+function evaluate_monomials(x::AbstractVector, indices::Vector{Vector{Int}})
+    return [prod(x[j]^alpha[j] for j in 1:length(x)) for alpha in indices]
+end
+
+# ODE function with polynomial right-hand side.
+# For each component i, the derivative du[i] is given by the sum:
+#
+#     du[i] = ∑ₖ p_i[k] * (x₁^(α₁) * x₂^(α₂) * ... * x_d^(α_d))
+#
+# where the sum is taken over all multi-indices α with |α| ≤ deg.
+# The parameters p are arranged as a flat vector with the coefficients for 
+# the i-th state component stored contiguously.
+function odefun_poly(du, u, p, t; deg=3)
+    d = length(u)
+    # Generate multi-indices for monomials in d variables up to degree `deg`
+    indices = multiindices(d, deg)
+    nmonomials = length(indices)
+    # Assert that the parameter vector p has the correct length
+    @assert length(p) == d * nmonomials "The parameter vector p should have length d*nmonomials"
+    
+    # Evaluate all monomials at the current state
+    monomials = evaluate_monomials(u, indices)
+    
+    # For each state component, compute the linear combination of the monomials.
+    for i in 1:d
+        # Extract the coefficients for the i-th component.
+        # The parameter vector p should have length d*nmonomials.
+        p_i = p[(i-1)*nmonomials + 1 : i*nmonomials]
+        du[i] = sum(p_i[k] * monomials[k] for k in 1:nmonomials)
+    end
+    return du
+end
+
+# === Example Usage ===
+# For a 2D system with a cubic polynomial (deg=3):
+d = 2                      # state dimension
+deg = 3                    # polynomial degree
+nmonomials = length(multiindices(d, deg))  # number of monomials per component
+Np = d * nmonomials      # total number of parameters
+
+
+
+
+const Np = 20
+# Default parameters for FHN
+fhn_p = [0.5, 1.0, -1.0, 0.0, 0.0, 0.0, -1/3, 0.0, 0.0, 0.0, 0.7/12.5, 1.0/12.5, -0.8/12.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+fhn_y0 = [1.0, 1.0]
+
+# prob_fhn = ODEProblem(odefun, fhn_y0, (0.0, 100.0), fhn_p)
+# sol_fhn = solve(prob_fhn, Tsit5(), abstol=1e-8, reltol=1e-8)
+# Define an ODEProblem using our polynomial-based RHS:
+
+prob_fhn = ODEProblem((du,u,p,t) -> odefun_poly(du, u, p, t; deg=deg), fhn_y0, (0.0, 100.0), fhn_p)
+
+# Solve the problem
+sol_fhn = solve(prob_fhn, Tsit5(), abstol=1e-8, reltol=1e-8)
+
+# (Optional) Plot the solution if you have a plotting package installed.
+using CairoMakie
 fig = Figure()
-save_cost_vs_windows!(fig, results_inner; title_= "best_guess_propogation")
-save("figs/window_size_plots/cost_vs_windows_with_best_guess_prop.png", fig)
+ax = Axis(fig[1, 1])
+lines!(ax, sol_fhn.t, [u[1] for u in sol_fhn.u], label="u₁")
+lines!(ax, sol_fhn.t, [u[2] for u in sol_fhn.u], label="u₂")
+axislegend(ax)
+fig
 
 
 
