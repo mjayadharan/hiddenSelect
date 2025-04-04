@@ -21,8 +21,29 @@ function odefun(dy, y, p, t)
     dy[2] = p[11] + p[12]*y[1] + p[13]*y[2] + p[14]*y[1]^2 + p[15]*y[1]*y[2] + p[16]*y[2]^2 + p[17]*y[1]^3 + p[18]*y[1]^2*y[2] + p[19]*y[1]*y[2]^2 + p[20]*y[2]^3
     return dy
 end
-#Generic ODE RHS function that can handle handle any right hand side.
-# Use multiindex_mapping function to generate mapping from the multiindex to the monomial string
+
+"""
+    odefun_poly!(du, u, p, t)
+
+Defines the ordinary differential equation (ODE) function for a polynomial system.
+
+# Arguments
+- `du::AbstractVector`: The derivative of the state vector `u` with respect to time.
+- `u::AbstractVector`: The state vector representing the current values of the system variables.
+- `p::AbstractVector`: The parameter vector containing coefficients or constants for the polynomial system.
+- `t::Real`: The current time.
+
+# Description
+This function computes the time derivative `du` of the state vector `u` based on a polynomial system defined by the parameters `p`. It is designed to be used with ODE solvers in Julia, such as those provided by the DifferentialEquations.jl package.
+
+# Notes
+- The function modifies `du` in place to improve performance and reduce memory allocations.
+- Ensure that the dimensions of `u` and `p` are consistent with the polynomial system being modeled.
+- Make sure that the parameters in `p` are ordered correctly to match the polynomial terms in the ODE system.
+ For example, for dim=2, deg=3, the parameters in p are ordered as follows: 
+ "1"  "x_2"  "x_2^2"  "x_2^3"  "x_1"  "x_1 * x_2"  "x_1 * x_2^2"  "x_1^2"  "x_1^2 * x_2"  "x_1^3"
+ For other dimensions, and degrees, use the helper function multiindex_mapping to find teh correct ordering.
+"""
 @inline function odefun_poly!(du, u, p, t; indices=nothing, deg=3)
     num_monomials = length(indices)         # number of monomials
     dim = length(u)                         # dimension
@@ -55,18 +76,28 @@ end
     return du
 end
 
+# Default parameters for FHN
+#Note that the orderin which the monomials appear in the parameters in is differn from odefun
+#parameter arrangement  "1"  "x_2"  "x_2^2"  "x_2^3"  "x_1"  "x_1 * x_2"  "x_1 * x_2^2"  "x_1^2"  "x_1^2 * x_2"  "x_1^3"
+fhn_p = [0.5, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, -1/3,
+0.7/12.5,  -0.8/12.5, 0.0, 0.0, 1.0/12.5, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 
 # Number of parameters in odefun
 const Np = 20
 
-# Default parameters for FHN
-fhn_p = [0.5, 1.0, -1.0, 0.0, 0.0, 0.0, -1/3, 0.0, 0.0, 0.0,
- 0.7/12.5, 1.0/12.5, -0.8/12.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+# # Default parameters for FHN (old version)
+# fhn_p = [0.5, 1.0, -1.0, 0.0, 0.0, 0.0, -1/3, 0.0, 0.0, 0.0,
+#  0.7/12.5, 1.0/12.5, -0.8/12.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 fhn_y0 = [1.0, 1.0]
 
-prob_fhn = ODEProblem(odefun, fhn_y0, (0.0, 100.0), fhn_p)
+# prob_fhn = ODEProblem(odefun, fhn_y0, (0.0, 100.0), fhn_p)
+multi_index_set = multiindices(2, 3) #Multindex for identifying degree of state variables in monomials for dim=2 upto degree 3
+prob_fhn = ODEProblem((du,u,p,t) -> odefun_poly!(du,u,p,t; indices=multi_index_set, deg=3),
+fhn_u0, (0.0, 100.0), fhn_p)
+
 sol_fhn = solve(prob_fhn, Tsit5(), abstol=1e-8, reltol=1e-8)
+
 
 ## Integrate FHN data
 cache = Tsit5Cache(fhn_y0) # Build cache
@@ -75,7 +106,10 @@ T = 156                    # Maxium integration time
 N = Int(T/δt)              # Number of integration steps
 t0 = 0.0                   # Initial time 
 # Integrate 
-_, ys = integrate(odefun, fhn_y0, fhn_p, t0, N, δt, cache)
+# _, ys = integrate(odefun, fhn_y0, fhn_p, t0, N, δt, cache)
+
+_, ys = integrate((du,u,p,t) -> odefun_poly!(du,u,p,t; indices=multi_index_set, deg=3), fhn_y0, fhn_p, t0, N, δt, cache)
+
 tsall = 0.0:δt:T
 # Downsample in time to generate sparser data
 downsample = 100
@@ -692,187 +726,6 @@ if plot_extra
     save_cost_vs_windows!(fig, results_inner; title_= "best_guess_propogation")
     save("figs/window_size_plots/cost_vs_windows_with_best_guess_prop.png", fig)
 end
-
-
-
-
-
-#========================================================================
-==============================================================#
-include("helper_functions.jl")
-
-# Function to evaluate all monomials at x given a list of multi-indices.
-# Each monomial is given by: x₁^(α₁)*x₂^(α₂)*...*x_d^(α_d)
-@inline function evaluate_monomials(x::AbstractVector, indices::Vector{Vector{Int}})
-    return [prod(x[j]^alpha[j] for j in 1:length(x)) for alpha in indices]
-end
-
-# ODE function with polynomial right-hand side.
-# For each component i, the derivative du[i] is given by the sum:
-#
-#     du[i] = ∑ₖ p_i[k] * (x₁^(α₁) * x₂^(α₂) * ... * x_d^(α_d))
-#
-# where the sum is taken over all multi-indices α with |α| ≤ deg.
-# The parameters p are arranged as a flat vector with the coefficients for 
-# the i-th state component stored contiguously.
-# function odefun_poly(du, u, p, t; deg=3)
-#     d = length(u)
-#     # Generate multi-indices for monomials in d variables up to degree `deg`
-#     indices = multiindices(d, deg)
-#     nmonomials = length(indices)
-#     # Assert that the parameter vector p has the correct length
-#     @assert length(p) == d * nmonomials "The parameter vector p should have length d*nmonomials"
-    
-#     # Evaluate all monomials at the current state
-#     # monomials = evaluate_monomials(u, indices)
-#     monomials = [prod(u[j]^alpha[j] for j in eachindex(u)) for alpha in indices]
-    
-#     # For each state component, compute the linear combination of the monomials.
-#     for i in 1:d
-#         # Extract the coefficients for the i-th component.
-#         # The parameter vector p should have length d*nmonomials.
-#         p_i = p[(i-1)*nmonomials + 1 : i*nmonomials]
-#         du[i] = sum(p_i[k] * monomials[k] for k in 1:nmonomials)
-#     end
-#     return du
-# end
-multi_index_set = multiindices(d, deg)
-function odefun_poly(du, u, p, t; indices = nothing, deg=3)
-    for i in eachindex(du)
-        du[i] = sum(p[(i-1)*length(indices) + k] * prod(u[j]^indices[k][j] for j in eachindex(u)) for k in 1:length(indices))
-    end
-    return du
-end
-
-function odefun_poly!(du, u, p, t; indices, deg=3)
-    # 1) Precompute all monomials into a vector M
-    #    Make sure M has length == length(indices)
-    M = similar(du, length(indices))  # or Vector{Float64}(undef, length(indices)), etc.
-    @inbounds for k in 1:length(indices)
-        prod_val = one(eltype(u))
-        @inbounds for j in eachindex(u)
-            prod_val *= u[j]^indices[k][j]
-        end
-        M[k] = prod_val
-    end
-
-    # 2) Reshape p into a 2D array P where
-    #    size(P) = (length(indices), length(du))
-    #    so that P[k,i] = p[(i-1)*length(indices) + k]
-    P = reshape(p, length(indices), length(du))
-
-    # 3) Compute du by a matrix multiply or by a double loop.
-    #    Option A: use matrix multiplication
-    #       du .= P' * M
-    #    Option B: do it manually in a loop for clarity:
-    @inbounds for i in eachindex(du)
-        s = zero(eltype(u))
-        for k in 1:length(indices)
-            s += P[k, i] * M[k]
-        end
-        du[i] = s
-    end
-    return du
-end
-
-# === Example Usage ===
-# For a 2D system with a cubic polynomial (deg=3):
-d = 2                      # state dimension
-deg = 3                    # polynomial degree
-nmonomials = length(multiindices(d, deg))  # number of monomials per component
-Np = d * nmonomials      # total number of parameters
-
-
-
-
-const Np = 20
-# Default parameters for FHN
-#parameter arrangement  "1"  "x_2"  "x_2^2"  "x_2^3"  "x_1"  "x_1 * x_2"  "x_1 * x_2^2"  "x_1^2"  "x_1^2 * x_2"  "x_1^3"
-fhn_p = [0.5, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, -1/3,
-0.7/12.5,  -0.8/12.5, 0.0, 0.0, 1.0/12.5, 0.0, 0.0, 0.0, 0.0, 0.0]
-fhn_u0 = [1.0, 1.0]
-
-# prob_fhn = ODEProblem(odefun, fhn_y0, (0.0, 100.0), fhn_p)
-# sol_fhn = solve(prob_fhn, Tsit5(), abstol=1e-8, reltol=1e-8)
-# Define an ODEProblem using our polynomial-based RHS:
-fhn_u0_s = @SVector [1.0, 1.0]
-# Convert multi_index_set to a vector of static vectors for efficient computation
-static_multi_index_set = [SVector{d, Int}(multi_index) for multi_index in multi_index_set]
-# prob_fhn = ODEProblem((du,u,p,t) -> odefun_poly(du, u, p, t; deg=deg), fhn_u0, (0.0, 100.0), fhn_p)
-multi_index_set = multiindices(d, deg)
-prob_fhn = ODEProblem((du,u,p,t) -> odefun_poly!(du,u,p,t; indices=multi_index_set, deg=3),
- fhn_u0, (0.0, 100.0), fhn_p)
-
-
-# Solve the problem
-sol_fhn = solve(prob_fhn, Tsit5(), abstol=1e-8, reltol=1e-8)
-
-
-prob_fhn_2 = ODEProblem(odefun, fhn_u0, (0.0, 100.0), fhn_p_2)
-# Solve the problem
-sol_fhn_2 = solve(prob_fhn_2, Tsit5(), abstol=1e-8, reltol=1e-8)
-
-
-@benchmark solve(prob_fhn_2, Tsit5(), abstol=1e-8, reltol=1e-8)
-
-@benchmark  solve(prob_fhn, Tsit5(), abstol=1e-8, reltol=1e-8)
-
-# (Optional) Plot the solution if you have a plotting package installed.
-using CairoMakie
-fig = Figure()
-ax = Axis(fig[1, 1])
-lines!(ax, sol_fhn.t, [u[1] for u in sol_fhn.u], label="u₁")
-lines!(ax, sol_fhn.t, [u[2] for u in sol_fhn.u], label="u₂")
-
-lines!(ax, sol_fhn_2.t, [u[1] for u in sol_fhn.u], label="w_1 ")
-lines!(ax, sol_fhn_2.t, [u[2] for u in sol_fhn.u], label="w_2")
-
-axislegend(ax)
-fig
-
-
-
-# Example usage:
-mapping = multiindex_mapping(2, 3)  # 2D system, cubic polynomials
-for (idx, mono) in mapping
-    print(mono, ", ")
-end
-println(" ")
-
-
-
-
-
-du_1 = zeros(2)
-du_2 = zeros(2)
-fhn_p_2 = [0.5, 1.0, -1.0, 0.0, 0.0, 0.0, -1/3, 0.0, 0.0, 0.0, 0.7/12.5, 1.0/12.5, -0.8/12.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-
-for i in 1:10
-    u = rand(2) .* 30 .- 10
-    res_1 = odefun_poly(du_1, u, fhn_p, 0.0; indices=multi_index_set, deg=3)
-    res_2 = odefun(du_2, u, fhn_p_2, 0.0)
-    println(res_1, res_2)
-end
-
-u = rand(2) .* 30 .- 10
-res_1 = odefun_poly(du_1, u, fhn_p, 0.0; deg=3)
-res_2 = odefun(du_2, u, fhn_p_2, 0.0)
-using StaticArrays 
-multi_index_set = multiindices(d, deg)
-u_s = @SVector rand(2)
-du_m = @MVector zeros(2)
-# Convert multi_index_set to a vector of static vectors for efficient computation
-static_multi_index_set = [SVector{d, Int}(multi_index) for multi_index in multi_index_set]
-fhn_p_s = SVector{length(fhn_p)}(fhn_p...)
-
-# monomial_eval_array = zeros(length(multi_index_set))
-@benchmark odefun_poly(du_1, u, fhn_p, 0.0; indices = multi_index_set, deg=3)
-@benchmark odefun_poly!(du_m, u_s, fhn_p, 0.0; indices = static_multi_index_set)
-@benchmark odefun_poly!(du_1, u, fhn_p, 0.0; indices = multi_index_set)
-
-
-@benchmark odefun(du_1, u, fhn_p_2, 0.0)
-
 
 
 

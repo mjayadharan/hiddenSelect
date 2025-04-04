@@ -46,5 +46,5 @@ function multiindex_mapping(dim::Int, deg::Int; state_names::Union{Nothing, Vect
         mapping[Tuple(idx)] = _multiindex_to_monomial(idx)
     end
 
-    return mapping
+    return mapping, [_multiindex_to_monomial(idx) for idx in indices]
 end
