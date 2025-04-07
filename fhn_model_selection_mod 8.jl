@@ -234,13 +234,32 @@ TODO: At this point assumes the state is two dimension!!!
 #     return data_loss / length(D) + sparse_loss / length(p)
 # end
 
-function forward_simulation_loss(x0, p, odefun, D, t0, δt, S, 
-    γ = 0.0, stiff_solver=false)
-# S: internal steps (only relevant when stiff_solver=false in your code)
-# D_1, D_2: the data columns for v(t) and w(t)
 
-    D_1 = @view D[1:2:end]
-    D_2 = @view D[2:2:end]
+"""
+    forward_simulation_loss(x0, p, odefun, data, t0, δt, S, γ=0.0, stiff_solver=false)
+
+Compute the loss by forward-simulating the ODE starting at initial condition `x0` 
+using parameters `p` and comparing the solution to `data`.
+
+Arguments:
+- `x0` : initial state vector of length d.
+- `p`  : parameter vector.
+- `odefun` : ODE function of signature `odefun(du, u, p, t)` (works for any dimension d).
+- `data` : a d×N matrix where each column is the measured state at a given time.
+- `t0`   : initial time.
+- `δt`   : integration time step.
+- `S`    : number of internal steps per data point.
+- `γ`    : sparsity regularization weight.
+- `stiff_solver` : flag to select the stiff solver branch.
+
+Returns the loss (data misfit plus a regularization term).
+"""
+function forward_simulation_loss(x0, p, odefun, data_, t0, δt, S, 
+    γ = 0.0, stiff_solver=false)
+    # S: internal steps (only relevant when stiff_solver=false in your code)
+    d, N = size(data)   # d: state dimension, N: number of data points
+    # D_1 = @view data_[1:2:end]
+    # D_2 = @view data_[2:2:end]
     if stiff_solver
         # -----------------------------------------------------
         # STIFF SOLVER BRANCH
