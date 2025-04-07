@@ -94,9 +94,10 @@ fhn_y0 = [1.0, 1.0]
 # prob_fhn = ODEProblem(odefun, fhn_y0, (0.0, 100.0), fhn_p)
 multi_index_set = multiindices(2, 3) #Multindex for identifying degree of state variables in monomials for dim=2 upto degree 3
 prob_fhn = ODEProblem((du,u,p,t) -> odefun_poly!(du,u,p,t; indices=multi_index_set, deg=3),
-fhn_u0, (0.0, 100.0), fhn_p)
+fhn_y0, (0.0, 100.0), fhn_p)
 
 sol_fhn = solve(prob_fhn, Tsit5(), abstol=1e-8, reltol=1e-8)
+
 
 
 ## Integrate FHN data
@@ -106,52 +107,71 @@ T = 156                    # Maxium integration time
 N = Int(T/δt)              # Number of integration steps
 t0 = 0.0                   # Initial time 
 # Integrate 
-# _, ys = integrate(odefun, fhn_y0, fhn_p, t0, N, δt, cache)
-
-_, ys = integrate((du,u,p,t) -> odefun_poly!(du,u,p,t; indices=multi_index_set, deg=3), fhn_y0, fhn_p, t0, N, δt, cache)
+_, ys = integrate((du, u, p, t) -> odefun_poly!(du, u, p, t; indices=multi_index_set, deg=3),
+                  fhn_y0, fhn_p, t0, N, δt, cache)
 
 tsall = 0.0:δt:T
+
 # Downsample in time to generate sparser data
 downsample = 100
-alldata = [getindex.(ys, 1)'; getindex.(ys, 2)']
-data = alldata[:, 1:downsample:end]
-ts = tsall[1:downsample:end]
-# The odd index of alldata now contains the v(t) data and the even index contains the w(t) data
-alldata = alldata[:, argmin(abs.(tsall .- 50)):argmin(abs.(tsall .- 150))][:]
-tsall = tsall[argmin(abs.(tsall .- 50)):argmin(abs.(tsall .- 150))]
 
-# Crop in time
+# Instead of interlacing odd and even indices, construct a matrix where:
+#   - Column 1 holds the v(t) data from getindex.(ys, 1)
+#   - Column 2 holds the w(t) data from getindex.(ys, 2)
+# Each row corresponds to one time point.
+alldata = hcat(getindex.(ys, 1), getindex.(ys, 2))
+
+# Downsample the rows of alldata and corresponding time points
+data = alldata[1:downsample:end, :]  # data is now (num_points × 2)
+ts = tsall[1:downsample:end]
+
+# Crop in time using tsall indices (here, from t = 50 to t = 150)
+ind_tall1 = argmin(abs.(tsall .- 50))
+ind_tall2 = argmin(abs.(tsall .- 150))
+alldata = alldata[ind_tall1:ind_tall2, :]
+tsall = tsall[ind_tall1:ind_tall2]
+
+# Crop the downsampled ts similarly using argmin on ts
 ind1 = argmin(abs.(ts .- 50))
 ind2 = argmin(abs.(ts .- 150))
 ts = ts[ind1:ind2]
 t1 = ts[1]
-ts =  ts .- t1
+ts  = ts .- t1
 tsall = tsall .- t1
-Nd = size(data, 2)
-# Concatenate into long vector
-# The odd index of data now contains the v(t) data and the even index contains the w(t) data
-data = data[:, ind1:ind2][:]
-# Add noise
+
+Nd = size(data, 1)
+
+# Crop data accordingly (using the same indices from ts)
+data = data[ind1:ind2, :]
+
+# Add noise separately to each state variable column.
+# Column 1 is v(t) and column 2 is w(t).
 Random.seed!(1287436679)
 noise_sigma = 0.05
-data[1:2:end] .+= noise_sigma*std(data[1:2:end])*randn(length(data[1:2:end]))
-data[2:2:end] .+= noise_sigma*std(data[2:2:end])*randn(length(data[2:2:end]))
+data[:, 1] .+= noise_sigma * std(data[:, 1]) * randn(size(data, 1))
+data[:, 2] .+= noise_sigma * std(data[:, 2]) * randn(size(data, 1))
+#appending time stamps to data
+data = hcat(ts, data)
+
 # Data time step
 Δt = ts[2] - ts[1]
 
-# Plot the result 
-fig = Figure() 
+# Plot the result
+fig = Figure()
 ax1 = Axis(fig[1, 1])
-lines!(ax1, tsall, alldata[1:2:end], color = Makie.ColorSchemes.Signac[12])
-scatter!(ax1, ts, data[1:2:end], color = Makie.ColorSchemes.Signac[12], markersize = 8)
+lines!(ax1, tsall, alldata[:, 1], color = Makie.ColorSchemes.Signac[12])
+scatter!(ax1, data[:,1], data[:, 2], color = Makie.ColorSchemes.Signac[12], markersize = 8)
 ax2 = Axis(fig[2, 1])
-lines!(ax2, tsall, alldata[2:2:end], color = Makie.ColorSchemes.Signac[11])
-scatter!(ax2, ts, data[2:2:end], color = Makie.ColorSchemes.Signac[11], markersize = 8)
+lines!(ax2, tsall, alldata[:, 2], color = Makie.ColorSchemes.Signac[11])
+scatter!(ax2, data[:,1], data[:, 3], color = Makie.ColorSchemes.Signac[11], markersize = 8)
 hidexdecorations!(ax1, ticks = false)
 ax1.ylabel = "v(t)"
 ax2.ylabel = "w(t)"
 ax2.xlabel = "t"
 fig
+##################################################################################
+# End of data generation
+##################################################################################
 
 ## Data fitting loss functions
 # A smooth version of l1 for gradient descent
@@ -245,7 +265,8 @@ Arguments:
 - `x0` : initial state vector of length d.
 - `p`  : parameter vector.
 - `odefun` : ODE function of signature `odefun(du, u, p, t)` (works for any dimension d).
-- `data` : a d×N matrix where each column is the measured state at a given time.
+- `data` : a Nxd matrix where first column corresponds to the time time points,other columns represent a
+           distinct state and row represent different times of measurement.
 - `t0`   : initial time.
 - `δt`   : integration time step.
 - `S`    : number of internal steps per data point.
@@ -257,15 +278,17 @@ Returns the loss (data misfit plus a regularization term).
 function forward_simulation_loss(x0, p, odefun, data_, t0, δt, S, 
     γ = 0.0, stiff_solver=false)
     # S: internal steps (only relevant when stiff_solver=false in your code)
-    d, N = size(data)   # d: state dimension, N: number of data points
+    N = size(data_,1 )    # N: number of data points
+    d = size(data_,2) - 1 # d: state dimension (Note that first column of data is time pionts)
     # D_1 = @view data_[1:2:end]
     # D_2 = @view data_[2:2:end]
     if stiff_solver
         # -----------------------------------------------------
         # STIFF SOLVER BRANCH
         # -----------------------------------------------------
-        final_time = t0 + δt*(length(D_1) - 1)
-        t_eval = t0:δt:final_time
+        final_time = t0 + δt*(N - 1)
+        # t_eval = t0:δt:final_time
+        t_eval = data_[:,1]
 
         # Set up the ODE problem
         prob = ODEProblem(odefun, x0, (t0, final_time), p)
@@ -273,37 +296,27 @@ function forward_simulation_loss(x0, p, odefun, data_, t0, δt, S,
         # Solve with a stiff solver, e.g., Rodas3
         # sol = solve(prob, Rodas3(); saveat=t_eval, abstol=1e-6, reltol=1e-6)
         sol = solve(prob, Tsit5(); saveat=t_eval, abstol=1e-8, reltol=1e-8)
-
+        #Refactor: Avoid this allocation and use the  solution vector directly. 
+        sol_mat = hcat(sol.u...)'
 
 
         # # Check for blow-ups or NaNs in the solution
-        if length(D_1) != length([getindex(u_ind,1) for u_ind in sol.u]) ||
-            any([getindex(u_ind,1) for u_ind in sol.u] .> 1e3) ||
-            any([getindex(u_ind,2) for u_ind in sol.u] .> 1e3) ||
-            any(isnan.([getindex(u_ind,1) for u_ind in sol.u])) ||
-            any(isnan.([getindex(u_ind,2) for u_ind in sol.u]))
+        if N != size(sol_mat, 1) || any(sol_mat .> 1e3) || any(isnan.(sol_mat))
             @info "Breaking early at the p value: $(p)"
                 return 1e3
         end
 
-
-        # Sum-of-squares difference to data
-        # D_1[i] is v-data, D_2[i] is w-data, and sol.u[i][1], sol.u[i][2] the solution states
-        # data_loss = 0.0
-        # for (i, t) in enumerate(t_eval)
-        #     data_loss += abs2(sol.u[i][1] - D_1[i]) + abs2(sol.u[i][2] - D_2[i])
-        # end
-
-        data_loss = norm(D_1- [getindex(u_ind,1) for u_ind in sol.u], 2)^2 + norm(D_2- [getindex(u_ind,2) for u_ind in sol.u], 2)^2
+        # data_loss = norm(D_1- [getindex(u_ind,1) for u_ind in sol.u], 2)^2 + norm(D_2- [getindex(u_ind,2) for u_ind in sol.u], 2)^2
+        data_loss = norm(data_[:,2:end]- sol_mat)^2
         # Add smooth L1 regularization if desired
         sparse_loss = sum(γ * smoothl1(pi) for pi in p)
 
         # Normalize by number of data points (optional) and return
-        return data_loss/length(t_eval) + sparse_loss/length(p)
+        return data_loss/N + sparse_loss/length(p)
 
     else
         # -----------------------------------------------------
-        # NON-STIFF BRANCH (YOUR ORIGINAL LOOP-BASED APPROACH)
+        # NON-STIFF BRANCH
         # -----------------------------------------------------
         # Integration cache
         cache = Tsit5Cache(x0)
@@ -311,11 +324,12 @@ function forward_simulation_loss(x0, p, odefun, data_, t0, δt, S,
         copyto!(x, x0)
 
         # Initial condition loss
-        data_loss = abs2(x0[1] - D_1[1]) + abs2(x0[2] - D_2[1])
+        # data_loss = abs2(x0[1] - D_1[1]) + abs2(x0[2] - D_2[1])
+        data_loss = norm(x0 - data[1, 2:end])^2
         integration_method = integration_step!
 
         # Loop over the data points
-        for i = 1:length(D_1) - 1
+        for i = 1:N - 1
             # Internal time steps
             for j = 1:S
                 integration_method(cache, odefun, x, t0, p, δt, false)
@@ -327,13 +341,14 @@ function forward_simulation_loss(x0, p, odefun, data_, t0, δt, S,
                 return 1e3
             end
             # Data loss for current time point
-            data_loss += abs2(x[1] - D_1[i+1]) + abs2(x[2] - D_2[i+1])
+            # data_loss += abs2(x[1] - D_1[i+1]) + abs2(x[2] - D_2[i+1])
+            data_loss += norm(x - data[i+1, 2:end])^2
         end
 
         # Sparsity term
         sparse_loss = sum(γ * smoothl1(pi) for pi in p)
 
-        return data_loss / (2*length(D_1)) + sparse_loss / length(p)
+        return data_loss/N + sparse_loss/length(p)
     end
 end
 
@@ -342,22 +357,85 @@ weight_func_linear(x;α=1,n=10) = α*(x-1)/(n-1)
 weight_func_exp(x; α=1, n=10, k=0.05) = α * (exp(k*(x - 1)) - 1) / (exp(k*(n - 1)) - 1)
 weight_func_quad(x; α=1, n=10) = α * ((x - 1)^2) / ((n - 1)^2)
 
-# plot(1:length(D_1),dum_fun.(1:length(D_1);α=0.5,n=length(D_1)))
-function forward_simulation_loss_windows(x0_, unstable_param, p_, odefun_, D_, t0_, δt_, S_, 
-    γ_ = 0.0, window_size_=1, stiff_solver_=false; solver_=nothing,
-    abs_tol_=abstol=1e-8, rel_tol_=abstol=1e-8, adaptive_=false, silent_=false)
-# S: internal steps (only relevant when stiff_solver=false in your code)
-# D_1, D_2: the data columns for v(t) and w(t)
 
-    D_1 = @view D_[1:2:end]
-    D_2 = @view D_[2:2:end]
+"""
+    forward_simulation_loss_windows(x0_, unstable_param, p_, odefun_, data_, t0_, δt_, S_, 
+        γ_ = 0.0, window_size_=1, stiff_solver_=false; solver_=nothing,
+        abs_tol_=1e-8, rel_tol_=1e-8, adaptive_=false, silent_=false)
+
+Compute the loss for an ODE forward simulation using a shooting windows approach, where the
+data is provided as a matrix. In the data matrix `data_`, the first column contains time 
+stamps and the remaining columns contain state variables. The function computes the discrepancy 
+between the simulated solution and the provided data over each window, plus an optional 
+regularization term.
+
+# Parameters
+- `x0_`: Initial state vector.
+- `unstable_param`: Collection to which unstable parameters are pushed if the solution 
+  blows up or produces NaNs.
+- `p_`: Parameter vector for the ODE.
+- `odefun_`: ODE function with signature `(du, u, p, t) -> ...`.
+- `data_`: Data matrix of size (N × (1+d)), where N is the number of data points. The first 
+  column holds time stamps and the remaining d columns hold the state variables.
+- `t0_`: Initial time.
+- `δt_`: Base time step for integration.
+- `S_`: Number of internal integration steps (used in the non-stiff branch).
+- `γ_`: Regularization weight for the smooth L1 penalty (default: 0.0).
+- `window_size_`: Number of steps per shooting window (default: 1). A window comprises 
+  `window_size_ + 1` data points.
+- `stiff_solver_`: Boolean flag to choose the stiff solver branch (default: false).
+
+# Keyword Arguments
+- `solver_`: (Optional) ODE solver to use in the stiff solver branch. Defaults to `Tsit5()` 
+  if not provided.
+- `abs_tol_`: Absolute tolerance for the ODE solver (default: 1e-8).
+- `rel_tol_`: Relative tolerance for the ODE solver (default: 1e-8).
+- `adaptive_`: Boolean flag for using an adaptive time-stepping scheme (default: false).
+- `silent_`: Boolean flag to suppress logging messages (default: false).
+
+# Returns
+- The computed loss, which is the sum of the data misfit (squared error between the simulated 
+  solution and the corresponding rows of the data matrix) and the smooth L1 regularization term. 
+  The loss is normalized appropriately. If the simulation becomes unstable (blows up or produces 
+  NaN values), the function returns `1e3`.
+
+# Details
+The function operates in two modes:
+1. **Stiff Solver Branch (`stiff_solver_ == true`):**
+   - For each shooting window, the ODE problem is remade with the initial condition taken 
+     from the corresponding row of `state_data` (i.e., `D_[:, 2:end]`).
+   - The ODE is solved over the window using the specified stiff solver.
+   - The solution is collected into a matrix (`sol_mat`), and the squared error is computed 
+     against the corresponding segment of `state_data`.
+
+2. **Non-Stiff Branch (`stiff_solver_ == false`):**
+   - A loop-based integration is performed, resetting the initial condition at the beginning 
+     of each window from the data.
+   - The integration is performed using a fixed number of internal steps (`S_`), and the loss 
+     is accumulated at each data point.
+
+Ensure that the data matrix `D_` is structured correctly, with the first column containing 
+time values and subsequent columns representing the state variables.
+"""
+
+
+function forward_simulation_loss_windows(x0_, unstable_param, p_, odefun_, data_, t0_, δt_, S_, 
+    γ_ = 0.0, window_size_=1, stiff_solver_=false; solver_=nothing,
+    abs_tol_=abstol=1e-8, rel_tol_=abstol=1e-8, adaptive_=false, silent_=false,
+    track_stability=false)
+
+     # Extract time and state data.
+    time_data = @view data_[:, 1]              # time stamps
+    state_data = @view data_[:, 2:end]          # each row is one data point; columns are state variables
+    N = size(state_data, 1)                   # number of data points
+
     #window_size is k, k+1 data points are used to form a window
     #IF window size is 1, then a window is formed between every consecutive data points.
     # If window size is length(data)-1, the forward_simulation_loss function. 
     #Defaul behaviour is to take the window size as 1
-    if window_size_ < 1 || window_size_ > length(D_1) - 1
-        @warn "Window size out of bounds. Clamping to valid range [1, $(length(D_1) - 1)]."
-        window_size_ = clamp(window_size_, 1, length(D_1) - 1)
+    if window_size_ < 1 || window_size_ > N - 1
+        @warn "Window size out of bounds. Clamping to valid range [1, $(length(state_data) - 1)]."
+        window_size_ = clamp(window_size_, 1, N - 1)
     end
 
     if stiff_solver_
@@ -366,15 +444,19 @@ function forward_simulation_loss_windows(x0_, unstable_param, p_, odefun_, D_, t
         # -----------------------------------------------------
         x = deepcopy(x0_)
         solver_ = solver_ === nothing ? Tsit5() : solver_
+        # Create an initial ODE problem (we will remake it in the loop)
         prob = ODEProblem(odefun_, x, (t0_, t0_+δt_),p_)
         t_init = t0_
         t_final = t0_
         Δt = δt_*S_
         data_loss = 0.0
-        for shoot_ind in 1:window_size_:length(D_1)-1
+        #looping over shooting windows
+        for shoot_ind in 1:window_size_:N-1
             t_init = t_final
-            t_final = clamp(t_init + window_size_*Δt, 0, t0_+Δt*(length(D_1) - 1))
-            copyto!(x, [D_1[shoot_ind], D_2[shoot_ind]])
+            t_final = clamp(t_init + window_size_*Δt, t0_, t0_+Δt*(N - 1))
+            # Use the state at the shooting node as initial condition.
+            # copyto!(x, [D_1[shoot_ind], D_2[shoot_ind]])
+            copyto!(x, state_data[shoot_ind, :])
             prob = remake(prob, u0=x, tspan=(t_init, t_final), p=p_)
             # prob = ODEProblem(odefun_, x, (t_init, t_final), p_)
 
@@ -389,26 +471,30 @@ function forward_simulation_loss_windows(x0_, unstable_param, p_, odefun_, D_, t
                 end
             end
 
-            # println("shoot_index:", shoot_ind, ",  data considered: ", shoot_ind:clamp(shoot_ind+window_size_,1,length(D_1)), ",  time_interval ",t_init:Δt:t_final, ",  t_Final: $t_final" )
-
+            # Define the indices in the data for this shooting window.
+            window_inds = shoot_ind:clamp(shoot_ind + window_size_, 1, N)
+            # Build a solution matrix: each row corresponds to a saved time point.
+            sol_mat = hcat(sol.u...)'
 
             # # Check for blow-ups or NaNs in the solution
-            if length(shoot_ind:clamp(shoot_ind+window_size_,1,length(D_1))) != length([getindex(u_ind,1) for u_ind in sol.u]) ||
-                any([getindex(u_ind,1) for u_ind in sol.u] .> 1e3) ||
-                any([getindex(u_ind,2) for u_ind in sol.u] .> 1e3) ||
-                any(isnan.([getindex(u_ind,1) for u_ind in sol.u])) ||
-                any(isnan.([getindex(u_ind,2) for u_ind in sol.u]))
+            # Check for mismatches in the number of time points or if the solution blows up.
+            if length(window_inds) != size(sol_mat, 1) || any(sol_mat .> 1e3) || any(isnan.(sol_mat))
                 if !silent_
-                    @info "Solution blew up or broken at shooting node: $shoot_ind"
-                    # print(window_size_+1) != length([getindex(u_ind,1) for u_ind in sol.u]))
+                    @info "Solution blew up or broke at shooting node: $shoot_ind"
                 end
-                push!(unstable_param, vcat(x,p_))
+                if track_stability
+                    # Store the unstable parameters for later analysis.
+                    push!(unstable_param, vcat(x, p_))
+                end
                 return 1e3
             end
-            data_loss += dot(D_1[shoot_ind:clamp(shoot_ind+window_size_,1,length(D_1))]- [getindex(u_ind,1) for u_ind in sol.u], 
-                           D_1[shoot_ind:clamp(shoot_ind+window_size_,1,length(D_1))]- [getindex(u_ind,1) for u_ind in sol.u]) 
-            + dot(D_2[shoot_ind:clamp(shoot_ind+window_size_,1,length(D_2))]- [getindex(u_ind,2) for u_ind in sol.u], 
-                           D_2[shoot_ind:clamp(shoot_ind+window_size_,1,length(D_2))]- [getindex(u_ind,2) for u_ind in sol.u])
+            # data_loss += dot(D_1[shoot_ind:clamp(shoot_ind+window_size_,1,length(D_1))]- [getindex(u_ind,1) for u_ind in sol.u], 
+            #                D_1[shoot_ind:clamp(shoot_ind+window_size_,1,length(D_1))]- [getindex(u_ind,1) for u_ind in sol.u]) 
+            # + dot(D_2[shoot_ind:clamp(shoot_ind+window_size_,1,length(D_2))]- [getindex(u_ind,2) for u_ind in sol.u], 
+            #                D_2[shoot_ind:clamp(shoot_ind+window_size_,1,length(D_2))]- [getindex(u_ind,2) for u_ind in sol.u])
+                    
+             # Accumulate the squared error over the window.
+             data_loss += norm(state_data[window_inds, :] - sol_mat)^2
 
             #optionally setting the initial condition for the next window to the final condition of the previous window
             # x = sol.u[end]
@@ -418,7 +504,7 @@ function forward_simulation_loss_windows(x0_, unstable_param, p_, odefun_, D_, t
         sparse_loss = sum(γ_ * smoothl1(pi) for pi in p_)
 
         # Normalize by number of data points (optional) and return
-        return data_loss/(2*length(D_1)) + sparse_loss/length(p_)
+        return data_loss/N + sparse_loss/length(p_)
 
     else
         # -----------------------------------------------------
@@ -429,18 +515,18 @@ function forward_simulation_loss_windows(x0_, unstable_param, p_, odefun_, D_, t
         x = cache.ycur
         copyto!(x, x0_)
         x_temp = deepcopy(x0_)
-
-        # weight_vector = 0.01 .+weight_func_linear.(1:length(D_1);α=1,n=length(D_1))
-        weight_vector = ones(length(D_1))
+        weight_vector = ones(N)
 
         # Initial condition loss
-        data_loss = weight_vector[1]*(abs2(x0_[1] - D_1[1]) + abs2(x0_[2] - D_2[1]))
+        # data_loss = weight_vector[1]*(abs2(x0_[1] - D_1[1]) + abs2(x0_[2] - D_2[1]))
+        data_loss = weight_vector[1] * norm(x0_ - state_data[1, :])^2
         integration_method = integration_step!
         # Loop over the data points
-        for i = 1:length(D_1) - 1
+        for i = 1:(N-1)
             #Resetting the initial condition for each window using data
             if (i-1) % window_size_ == 0
-                copyto!(x, [D_1[i], D_2[i]])
+                # copyto!(x, [D_1[i], D_2[i]])
+                copyto!(x, state_data[i, :])
             end
             # copyto!(x, [D_1[i], D_2[i]])
             copyto!(x_temp, x)
@@ -456,17 +542,22 @@ function forward_simulation_loss_windows(x0_, unstable_param, p_, odefun_, D_, t
                 if !silent_
                     @info "Breaking at window: $((i-1)/window_size_) with window_size: $window_size_, solution blew up or NaN."
                 end
-                push!(unstable_param, vcat(x_temp,p_))
+                if track_stability
+                    # Store the unstable parameters for later analysis.
+                    push!(unstable_param, vcat(x_temp, p_))
+                end
                 return 1e3
             end
             # Data loss for current time point
-            data_loss += weight_vector[i+1]*(abs2(x[1] - D_1[i+1]) + abs2(x[2] - D_2[i+1]))
+            # data_loss += weight_vector[i+1]*(abs2(x[1] - D_1[i+1]) + abs2(x[2] - D_2[i+1]))
+            # Accumulate loss for the (i+1)th data point.
+            data_loss += weight_vector[i + 1] * norm(x - state_data[i + 1, :])^2
         end
 
         # Sparsity term
         sparse_loss = sum(γ_ * smoothl1(pi) for pi in p_)
 
-        return data_loss / (2*length(D_1)) + sparse_loss / length(p_)
+        return data_loss/N + sparse_loss/length(p_)
     end
 end
 
@@ -525,10 +616,10 @@ function data_assimilation_loss(X, p, odefun, data, α, β, δt, S, γ = 0.0)
 end
 
 
-function dummy_fun()
-end
 ## Set up the loss functions and automatic differentiation
 # Parameters 
+dim = 2
+t0 = 0.0
 S = 10    # Number of internal time steps
 δt = Δt / S     # Time step 
 α = 1.0         # Data loss weight 
@@ -547,11 +638,14 @@ Nx = 2*(div(length(data), 2) - 1) * S + 2
 # da_loss_tape = ReverseDiff.GradientTape(da_loss, (randn(Nx), similar(fhn_p)))
 # compiled_da_loss_tape = ReverseDiff.compile(da_loss_tape)
 
+multi_index_set = multiindices(2, 3) #Multindex for identifying degree of state variables in monomials for dim=2 upto degree 3
+odefun_generic = (du,u,p,t) -> odefun_poly!(du,u,p,t; indices=multi_index_set, deg=3)
+
 function fs_loss(x)
-    x0 = view(x, 1:2)
-    p  = view(x, 3:length(x))
+    x0 = @view x[1:dim]
+    p  = @view x[dim+1:end]
     # Note: t0, dt, S, and γ2 are as defined in your code.
-    return forward_simulation_loss(x0, p, odefun, data, 0.0, δt, S, γ2, false)
+    return forward_simulation_loss(x0, p, odefun_generic, data, t0, δt, S, γ2, false)
     # return forward_simulation_loss(x0, p, odefun, data, 0.0, δt, S, γ2, false)
 
 end
@@ -603,8 +697,8 @@ num_runs = 1
 
 
 
-x0 = [data[1:2]; 0.01*randn(length(fhn_p))]
-x0_ = [data[1:2]; 0.01*randn(length(fhn_p))]
+x0 = [data[1, 2:end]; 0.01*randn(length(fhn_p))]
+x0_ = [data[1, 2:end]; 0.01*randn(length(fhn_p))]
 copyto!(x0_, x0)
 # Run optimization in parallel
 
@@ -644,8 +738,8 @@ solver = Rosenbrock23()
         # Define the loss function
         unstable_points = []
         function fs_loss_window(x)
-            x0 = view(x, 1:2)
-            p  = view(x, 3:length(x))
+            x0 = @view x[1:dim]
+            p  = @view x[dim+1:end]
             return forward_simulation_loss_windows(x0, unstable_points, p, odefun, data, 0.0, δt, S, γ2, window_size, false;
             solver_=solver, silent_=false, adaptive_=true, abs_tol_=1e-8, rel_tol_=1e-8)
         end
@@ -713,7 +807,7 @@ x0_2 = [data[1:2]; df.Minimizer[argmin(df.Cost)][end-Np + 1:end]]
 optres2 = Optim.optimize(fs_loss, grad_fs_loss!, x0_2, BFGS(), options)
 
 ## Plot the results 
-trmstr = repeat(["1", "v", "w", "v²", "vw", "w²", "v³", "v²w", "vw²", "w³"], 2)
+trmstr = ["1", "v", "w", "v²", "vw", "w²", "v³", "v²w", "vw²", "w³"]
 cvec = [repeat([Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 1.0), ], 10); repeat([Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 1.0), ], 10)]
 
 
@@ -723,7 +817,7 @@ guess_prop_minimizer = df.Minimizer[argmin(df.Cost)]
 FS_minimizer = optres2.minimizer
 # δt=0.01
 fig = Figure(size = (980, 480))
-plotSolution!(fig, guess_prop_minimizer, FS_minimizer, ts, data, tsall, alldata, δt, t0, fhn_p, Np, odefun, cache;
+plotSolution!(fig, guess_prop_minimizer, FS_minimizer, ts, data, tsall, hcat(tsall, alldata), δt, t0, fhn_p, Np, odefun, cache, trm;
     DA=false, GFreeFS=true, FS=true, integration_method = nothing)
 fig
 # save("figs/window_size_plots/init_seed_0.1_with_best_guess_propogation.png", fig)

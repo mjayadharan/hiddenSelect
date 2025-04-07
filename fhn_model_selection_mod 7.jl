@@ -250,7 +250,7 @@ function forward_simulation_loss(x0, p, odefun, D, t0, δt, S,
 
     else
         # -----------------------------------------------------
-        # NON-STIFF BRANCH (YOUR ORIGINAL LOOP-BASED APPROACH)
+        # NON-STIFF BRANCH 
         # -----------------------------------------------------
         # Integration cache
         cache = Tsit5Cache(x0)

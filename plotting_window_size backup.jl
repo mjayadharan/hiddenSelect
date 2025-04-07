@@ -1,238 +1,122 @@
 include("integrator.jl")
 
 
-# function plotSolution!(fig, guess_prop_minimizer_, FS_minimizer_, ts_, data_, tsall_, alldata_, δt_, t0_, true_param_, Np_, odefun_, cache_,;
-#     DA=false, GFreeFS=true, FS=true, integration_method = nothing)
-
-#     # Plotting the GradFree simulation results
-#     T = ts_[end] 
-#     N_ = Int(T / δt_)
-
-#     trmstr = repeat(["1", "v", "w", "v²", "vw", "w²", "v³", "v²w", "vw²", "w³"], 2)
-#     cvec = [repeat([Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 1.0), ], 10); repeat([Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 1.0), ], 10)]
-#     integration_method = integration_method === nothing ? integrate : integration_method
-#     if GFreeFS
-#         _, ys = integration_method(odefun_, guess_prop_minimizer_[1:2], guess_prop_minimizer_[end-Np_ + 1:end], t0_, N_, δt_, cache_)
-#         ax11 = Axis(fig[1, 1])
-#         scatter!(ax11, ts_, data_[1:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
-#         lines!(ax11, 0:δt_:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
-#         lines!(ax11, tsall_, alldata_[1:2:end], color = plotGray, linestyle = :dash)
-#         ylims!(ax11, -3, 3)
-#         xlims!(ax11, 0.0, ts_[end])
-#         hidexdecorations!(ax11, ticks = false)
-#         ax21 = Axis(fig[2, 1])
-#         scatter!(ax21, ts_, data_[2:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 0.25))
-#         lines!(ax21, 0:δt_:T, getindex.(ys, 2), color = Makie.ColorSchemes.Signac[11])
-#         lines!(ax21, tsall_, alldata_[2:2:end], color = plotGray, linestyle = :dash)
-#         ylims!(ax21, -0.6, 1.65)
-#         xlims!(ax21, 0.0, ts_[end])
-#         ax21.xlabel = "t"
-#         ax21.ylabel = "w(t)"
-#         ax11.ylabel = "v(t)"
-#         ax21.xticks = 0:25:75
-
-#         # plot the GradFree coefficient results
-#         ax31 = Axis(fig[3, 1])
-#         barplot!(ax31, 1:Np_, guess_prop_minimizer_[end-Np_ + 1:end], color = Makie.Colors.RGBA.(cvec, 0.25), strokecolor = plotGray, strokewidth = 1)
-#         scatter!(ax31, 1:Np_, true_param_, color = cvec)
-#         ax31.xticks = (1:Np_, trmstr)
-#         ax31.xticklabelrotation = π/4
-#         hlines!(ax31, 0.0, color = plotGray)
-#         ylims!(ax31, -1.1, 1.1)
-#         xlims!(ax31, 0.25, Np_ + 0.75)
-#     end
-#     if DA
-#         # Plot the DA simulation results
-#         T = ts_[end] 
-#         N_ = Int(T / δt_)
-#         _, ys = integration_method(odefun_, optres.minimizer[1:2], optres.minimizer[end-Np_ + 1:end], t0_, N_, δt_, cache_)
-#         ax11 = Axis(fig[1, 1])
-#         scatter!(ax11, ts_, data_[1:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
-#         lines!(ax11, 0:δt_:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
-#         lines!(ax11, tsall_, alldata_[1:2:end], color = plotGray, linestyle = :dash)
-#         ylims!(ax11, -3, 3)
-#         xlims!(ax11, 0.0, ts_[end])
-#         hidexdecorations!(ax11, ticks = false)
-#         ax21 = Axis(fig[2, 1])
-#         scatter!(ax21, ts_, data_[2:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 0.25))
-#         lines!(ax21, 0:δt_:T, getindex.(ys, 2), color = Makie.ColorSchemes.Signac[11])
-#         lines!(ax21, tsall_, alldata_[2:2:end], color = plotGray, linestyle = :dash)
-#         ylims!(ax21, -0.6, 1.65)
-#         xlims!(ax21, 0.0, ts_[end])
-#         ax21.xlabel = "t"
-#         ax21.ylabel = "w(t)"
-#         ax11.ylabel = "v(t)"
-#         ax21.xticks = 0:25:75
-
-#         # plot the DA coefficient results
-#         ax31 = Axis(fig[3, 1])
-#         barplot!(ax31, 1:Np_, optres.minimizer[end-Np_ + 1:end], color = Makie.Colors.RGBA.(cvec, 0.25), strokecolor = plotGray, strokewidth = 1)
-#         scatter!(ax31, 1:Np_, true_param_, color = cvec)
-#         ax31.xticks = (1:Np_, trmstr)
-#         ax31.xticklabelrotation = π/4
-#         hlines!(ax31, 0.0, color = plotGray)
-#         ylims!(ax31, -1.1, 1.1)
-#         xlims!(ax31, 0.25, Np_ + 0.75)
-#     end
-
-#     if FS
-
-#         # Plot the FS simulation results
-#         T = ts_[end] 
-#         N_ = Int(T / δt_)
-#         _, ys = integration_method(odefun_, FS_minimizer_[1:2], FS_minimizer_[end-Np_ + 1:end], t0_, N_, δt_, cache_)
-#         ax12 = Axis(fig[1, 2])
-#         scatter!(ax12, ts_, data_[1:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
-#         lines!(ax12, 0:δt_:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
-#         lines!(ax12, tsall_, alldata_[1:2:end], color = plotGray, linestyle = :dash)
-#         ylims!(ax12, -3, 3)
-#         xlims!(ax12, 0.0, ts_[end])
-#         hidexdecorations!(ax12, ticks = false)
-#         ax22 = Axis(fig[2, 2])
-#         scatter!(ax22, ts_, data_[2:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 0.25))
-#         lines!(ax22, 0:δt_:T, getindex.(ys, 2), color = Makie.ColorSchemes.Signac[11])
-#         lines!(ax22, tsall_, alldata_[2:2:end], color = plotGray, linestyle = :dash)
-#         ylims!(ax22, -0.6, 1.65)
-#         xlims!(ax22, 0.0, ts_[end])
-#         hideydecorations!.([ax12, ax22], ticks = false)
-#         ax22.xlabel = "t"
-#         ax22.xticks = 0:25:75
-
-#         # plot the FS coefficient results
-#         ax32 = Axis(fig[3, 2])
-#         barplot!(ax32, 1:Np_, FS_minimizer_[end-Np_ + 1:end], color = Makie.Colors.RGBA.(cvec, 0.25), strokecolor = plotGray, strokewidth = 1)
-#         scatter!(ax32, 1:Np_, true_param_, color = cvec)
-#         ax32.xticks = (1:Np_, trmstr)
-#         ax32.xticklabelrotation = π/4
-#         hlines!(ax32, 0.0, color = plotGray)
-#         ylims!(ax32, -1.1, 1.1)
-#         xlims!(ax32, 0.25, Np_ + 0.75)
-#         hideydecorations!(ax32, ticks = false)
-#         ax31.ylabel = "Parameter value"
-
-#         ax11.title = "GradFree multi-shoot optimization, with guess propogation"
-
-#         ax12.title = "Forward Simulation optimization"
-#         ax11.titlefont = "Helvetica Neue Light"
-#         ax12.titlefont = "Helvetica Neue Light"
-#     end
-# end
-
-function plotSolution!(fig, guess_prop_minimizer_, FS_minimizer_, ts_, data_, tsall_,
-     alldata_, δt_, t0_, true_param_, Np_, odefun_, cache_, trmstr;
+function plotSolution!(fig, guess_prop_minimizer_, FS_minimizer_, ts_, data_, tsall_, alldata_, δt_, t0_, true_param_, Np_, odefun_, cache_;
     DA=false, GFreeFS=true, FS=true, integration_method = nothing)
 
-    # Determine state dimension (d) from data: first column is time.
-    dim = size(data_, 2) - 1  # number of state variables
-    T = ts_[end]
+    # Plotting the GradFree simulation results
+    T = ts_[end] 
     N_ = Int(T / δt_)
+
+    trmstr = repeat(["1", "v", "w", "v²", "vw", "w²", "v³", "v²w", "vw²", "w³"], 2)
+    cvec = [repeat([Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 1.0), ], 10); repeat([Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 1.0), ], 10)]
     integration_method = integration_method === nothing ? integrate : integration_method
-
-    # Define a helper function to extract the i-th state component from an ODE solution vector array.
-    state_component(ys, i) = [u[i] for u in ys]
-
     if GFreeFS
-        # --- GradFree Simulation Results (Left Column) ---
-        # Use the first 'dim' entries of the minimizer as the initial condition.
-        _, ys = integration_method(odefun_, guess_prop_minimizer_[1:dim], 
-            guess_prop_minimizer_[end-Np_+1:end], t0_, N_, δt_, cache_)
-        # Loop over state variables and create an axis for each in column 1.
-        for i in 1:dim
-            ax = Axis(fig[i, 1])
-            # Scatter the (measured) data: use column i+1 (since column 1 is time).
-            scatter!(ax, ts_, data_[:, i+1], 
-                color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
-            # Plot the simulated trajectory.
-            lines!(ax, 0:δt_:T, state_component(ys, i), color = Makie.ColorSchemes.Signac[12])
-            # Plot the full data trace (dashed) from alldata_ (assumed to have same structure as data_).
-            lines!(ax, tsall_, alldata_[:, i+1], color = plotGray, linestyle = :dash)
-            # Set axis labels using generic state names.
-            ax.ylabel = "x_$(i)(t)"
-            xlims!(ax, 0.0, ts_[end])
-            # Optionally set ylims if known; otherwise, remove these lines or set them dynamically.
-            # ylims!(ax, <lower>, <upper>)
-        end
+        _, ys = integration_method(odefun_, guess_prop_minimizer_[1:2], guess_prop_minimizer_[end-Np_ + 1:end], t0_, N_, δt_, cache_)
+        ax11 = Axis(fig[1, 1])
+        scatter!(ax11, ts_, data_[1:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
+        lines!(ax11, 0:δt_:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
+        lines!(ax11, tsall_, alldata_[1:2:end], color = plotGray, linestyle = :dash)
+        ylims!(ax11, -3, 3)
+        xlims!(ax11, 0.0, ts_[end])
+        hidexdecorations!(ax11, ticks = false)
+        ax21 = Axis(fig[2, 1])
+        scatter!(ax21, ts_, data_[2:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 0.25))
+        lines!(ax21, 0:δt_:T, getindex.(ys, 2), color = Makie.ColorSchemes.Signac[11])
+        lines!(ax21, tsall_, alldata_[2:2:end], color = plotGray, linestyle = :dash)
+        ylims!(ax21, -0.6, 1.65)
+        xlims!(ax21, 0.0, ts_[end])
+        ax21.xlabel = "t"
+        ax21.ylabel = "w(t)"
+        ax11.ylabel = "v(t)"
+        ax21.xticks = 0:25:75
 
-        # --- GradFree Coefficient Plot (Left Column, below simulation plots) ---
-        ax_bar = Axis(fig[dim+1, 1])
-        # trmstr = [ "x₁", "x₂", "x₃", "x₄", "x₅", "x₆", "x₇", "x₈", "x₉", "x₁₀" ]  # example labels; adjust if needed
-        # Use the same color scheme for the bars.
-        cvec = [Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25) for _ in 1:Np_]
-        barplot!(ax_bar, 1:Np_, guess_prop_minimizer_[end-Np_+1:end], 
-            color = cvec, strokecolor = plotGray, strokewidth = 1)
-        scatter!(ax_bar, 1:Np_, true_param_, color = cvec)
-        ax_bar.xticks = (1:Np_, trmstr[1:Np_])
-        ax_bar.xticklabelrotation = π/4
-        hlines!(ax_bar, 0.0, color = plotGray)
-        ax_bar.ylabel = "Parameter value"
+        # plot the GradFree coefficient results
+        ax31 = Axis(fig[3, 1])
+        barplot!(ax31, 1:Np_, guess_prop_minimizer_[end-Np_ + 1:end], color = Makie.Colors.RGBA.(cvec, 0.25), strokecolor = plotGray, strokewidth = 1)
+        scatter!(ax31, 1:Np_, true_param_, color = cvec)
+        ax31.xticks = (1:Np_, trmstr)
+        ax31.xticklabelrotation = π/4
+        hlines!(ax31, 0.0, color = plotGray)
+        ylims!(ax31, -1.1, 1.1)
+        xlims!(ax31, 0.25, Np_ + 0.75)
     end
-
     if DA
-        # --- DA Simulation Results (Left Column, similar layout) ---
-        _, ys = integration_method(odefun_, optres.minimizer[1:dim], 
-            optres.minimizer[end-Np_+1:end], t0_, N_, δt_, cache_)
-        for i in 1:dim
-            ax = Axis(fig[i, 1])
-            scatter!(ax, ts_, data_[:, i+1], 
-                color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
-            lines!(ax, 0:δt_:T, state_component(ys, i), color = Makie.ColorSchemes.Signac[12])
-            lines!(ax, tsall_, alldata_[:, i+1], color = plotGray, linestyle = :dash)
-            ax.ylabel = "x_$(i)(t)"
-            xlims!(ax, 0.0, ts_[end])
-        end
-        # DA coefficient results
-        ax_bar = Axis(fig[dim+1, 1])
-        barplot!(ax_bar, 1:Np_, optres.minimizer[end-Np_+1:end], 
-            color = [Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25) for _ in 1:Np_],
-            strokecolor = plotGray, strokewidth = 1)
-        scatter!(ax_bar, 1:Np_, true_param_, color = cvec)
-        ax_bar.xticks = (1:Np_, trmstr[1:Np_])
-        ax_bar.xticklabelrotation = π/4
-        hlines!(ax_bar, 0.0, color = plotGray)
-        ax_bar.ylabel = "Parameter value"
+        # Plot the DA simulation results
+        T = ts_[end] 
+        N_ = Int(T / δt_)
+        _, ys = integration_method(odefun_, optres.minimizer[1:2], optres.minimizer[end-Np_ + 1:end], t0_, N_, δt_, cache_)
+        ax11 = Axis(fig[1, 1])
+        scatter!(ax11, ts_, data_[1:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
+        lines!(ax11, 0:δt_:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
+        lines!(ax11, tsall_, alldata_[1:2:end], color = plotGray, linestyle = :dash)
+        ylims!(ax11, -3, 3)
+        xlims!(ax11, 0.0, ts_[end])
+        hidexdecorations!(ax11, ticks = false)
+        ax21 = Axis(fig[2, 1])
+        scatter!(ax21, ts_, data_[2:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 0.25))
+        lines!(ax21, 0:δt_:T, getindex.(ys, 2), color = Makie.ColorSchemes.Signac[11])
+        lines!(ax21, tsall_, alldata_[2:2:end], color = plotGray, linestyle = :dash)
+        ylims!(ax21, -0.6, 1.65)
+        xlims!(ax21, 0.0, ts_[end])
+        ax21.xlabel = "t"
+        ax21.ylabel = "w(t)"
+        ax11.ylabel = "v(t)"
+        ax21.xticks = 0:25:75
+
+        # plot the DA coefficient results
+        ax31 = Axis(fig[3, 1])
+        barplot!(ax31, 1:Np_, optres.minimizer[end-Np_ + 1:end], color = Makie.Colors.RGBA.(cvec, 0.25), strokecolor = plotGray, strokewidth = 1)
+        scatter!(ax31, 1:Np_, true_param_, color = cvec)
+        ax31.xticks = (1:Np_, trmstr)
+        ax31.xticklabelrotation = π/4
+        hlines!(ax31, 0.0, color = plotGray)
+        ylims!(ax31, -1.1, 1.1)
+        xlims!(ax31, 0.25, Np_ + 0.75)
     end
 
     if FS
-        # --- FS Simulation Results (Right Column) ---
-        _, ys = integration_method(odefun_, FS_minimizer_[1:dim], 
-            FS_minimizer_[end-Np_+1:end], t0_, N_, δt_, cache_)
-        for i in 1:dim
-            ax = Axis(fig[i, 2])
-            scatter!(ax, ts_, data_[:, i+1], 
-                color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
-            lines!(ax, 0:δt_:T, state_component(ys, i), color = Makie.ColorSchemes.Signac[12])
-            lines!(ax, tsall_, alldata_[:, i+1], color = plotGray, linestyle = :dash)
-            ax.ylabel = "x_$(i)(t)"
-            xlims!(ax, 0.0, ts_[end])
-        end
-        # FS coefficient results (Right Column, below simulation plots)
-        ax_bar = Axis(fig[dim+1, 2])
-        barplot!(ax_bar, 1:Np_, FS_minimizer_[end-Np_+1:end], 
-            color = [Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 0.25) for _ in 1:Np_],
-            strokecolor = plotGray, strokewidth = 1)
-        scatter!(ax_bar, 1:Np_, true_param_, color = [Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 0.25) for _ in 1:Np_])
-        ax_bar.xticks = (1:Np_, trmstr[1:Np_])
-        ax_bar.xticklabelrotation = π/4
-        hlines!(ax_bar, 0.0, color = plotGray)
-        ax_bar.ylabel = "Parameter value"
 
-        # Optionally hide y-axis decorations on simulation axes for a cleaner look.
-        for i in 1:dim
-            hideydecorations!(Axis(fig[i, 2]), ticks = false)
-        end
-        # Set x-axis labels on the bottom simulation axes if desired.
-        Axis(fig[dim, 2]).xlabel = "t"
-    end
+        # Plot the FS simulation results
+        T = ts_[end] 
+        N_ = Int(T / δt_)
+        _, ys = integration_method(odefun_, FS_minimizer_[1:2], FS_minimizer_[end-Np_ + 1:end], t0_, N_, δt_, cache_)
+        ax12 = Axis(fig[1, 2])
+        scatter!(ax12, ts_, data_[1:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[12], 0.25))
+        lines!(ax12, 0:δt_:T, getindex.(ys, 1), color = Makie.ColorSchemes.Signac[12])
+        lines!(ax12, tsall_, alldata_[1:2:end], color = plotGray, linestyle = :dash)
+        ylims!(ax12, -3, 3)
+        xlims!(ax12, 0.0, ts_[end])
+        hidexdecorations!(ax12, ticks = false)
+        ax22 = Axis(fig[2, 2])
+        scatter!(ax22, ts_, data_[2:2:end], color = Makie.Colors.RGBA(Makie.ColorSchemes.Signac[11], 0.25))
+        lines!(ax22, 0:δt_:T, getindex.(ys, 2), color = Makie.ColorSchemes.Signac[11])
+        lines!(ax22, tsall_, alldata_[2:2:end], color = plotGray, linestyle = :dash)
+        ylims!(ax22, -0.6, 1.65)
+        xlims!(ax22, 0.0, ts_[end])
+        hideydecorations!.([ax12, ax22], ticks = false)
+        ax22.xlabel = "t"
+        ax22.xticks = 0:25:75
 
-    if GFreeFS
-        # Set a title for the GradFree simulation column.
-        Axis(fig[1, 1]).title = "GradFree multi-shoot optimization, with guess propagation"
-    end
-    if FS
-        Axis(fig[1, 2]).title = "Forward Simulation optimization"
+        # plot the FS coefficient results
+        ax32 = Axis(fig[3, 2])
+        barplot!(ax32, 1:Np_, FS_minimizer_[end-Np_ + 1:end], color = Makie.Colors.RGBA.(cvec, 0.25), strokecolor = plotGray, strokewidth = 1)
+        scatter!(ax32, 1:Np_, true_param_, color = cvec)
+        ax32.xticks = (1:Np_, trmstr)
+        ax32.xticklabelrotation = π/4
+        hlines!(ax32, 0.0, color = plotGray)
+        ylims!(ax32, -1.1, 1.1)
+        xlims!(ax32, 0.25, Np_ + 0.75)
+        hideydecorations!(ax32, ticks = false)
+        ax31.ylabel = "Parameter value"
+
+        ax11.title = "GradFree multi-shoot optimization, with guess propogation"
+
+        ax12.title = "Forward Simulation optimization"
+        ax11.titlefont = "Helvetica Neue Light"
+        ax12.titlefont = "Helvetica Neue Light"
     end
 end
-
 
 #===================================================================================================
 ===================================================================================================#
