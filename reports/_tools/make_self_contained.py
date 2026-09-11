@@ -78,6 +78,11 @@ REPORTS = {
         reproduce="See REPRODUCE.md in the folder (Python: compute_R003.py, make_tables.py, figures/make_figures.py, verify_R003.py; pdflatex x2).",
         skip_generated_docs=True,
     ),
+    "2026-09-11-R004-revised-manuscript": dict(
+        data_roots=[],   # 39 inherited R002/R003 files copied byte-for-byte (INPUTS.md via analysis/make_inputs_md.py); deps/ empty
+        reproduce="See REPRODUCE.md in the folder (Python: make_inputs_md.py, make_tables.py, verify_R004.py, pdflatex x2, make_report_md.py, verify again).",
+        skip_generated_docs=True,
+    ),
     # ---- TEMPLATE: one entry per report, added when the report is created.
     # data_roots: list of (path-relative-to-repo, "produced by ..." note).
     #   A file is hashed; a directory is summarized (size + tracked count).

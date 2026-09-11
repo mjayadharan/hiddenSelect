@@ -1,0 +1,20 @@
+| variation (arm) | seeds | $\|p-p^\star\|$ at $\kappa=100$ | score | seeds on plateau |
+|---|---|---|---|---|
+| schedule DENSE (44 stages) | 8 | 0.30 | 0.80 | 12 % |
+| schedule COARSE (4 stages) | 8 | 0.52 | 0.55 | 12 % |
+| schedule JUMP (2 stages) | 8 | 0.76 | 0.42 | 12 % |
+| graded blow-up penalty, GP | 8 | 0.27 | 0.82 | 0 % |
+| graded blow-up penalty, control | 8 | 1.63 | 0.30 | 0 % |
+| noise 0 %, GP | 6 | 0.23 | 0.80 | 17 % |
+| noise 10 %, GP | 6 | 0.31 | 0.62 | 17 % |
+| noise 20 %, GP | 6 | 1.88 | 0.23 | 17 % |
+| noise 0 %, control | 6 | 1.63 | 0.25 | 33 % |
+| $\gamma=0$, GP | 6 | 0.81 | 0.38 | 17 % |
+| $\gamma=0.05$, GP | 6 | 0.22 | 0.80 | 17 % |
+| $\gamma=1$, GP | 6 | 1.01 | 0.60 | 17 % |
+| BFGS, GP | 8 | 0.21 | 0.95 | 12 % |
+| BFGS, control | 8 | 1.65 | 0.23 | 62 % |
+| Nelder–Mead 1000 iterations, GP | 4 | 0.61 | 0.57 | 25 % |
+| Nelder–Mead 5000 iterations, GP | 4 | 0.20 | 0.90 | 25 % |
+| integrator sub-steps $S=1$, GP | 4 | 0.50 | 0.75 | 0 % |
+| integrator sub-steps $S=5$, GP | 4 | 0.29 | 0.82 | 25 % |

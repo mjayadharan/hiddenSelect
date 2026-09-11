@@ -1,0 +1,42 @@
+{
+  "G1_external_data_hashes_and_byte_identity": {
+    "pass": true,
+    "detail": "19 files; mismatches: []"
+  },
+  "G2_figures_byte_identical_to_source": {
+    "pass": true,
+    "detail": "20 figures; mismatches: []"
+  },
+  "G3_referenced_figures_exist_no_retired": {
+    "pass": true,
+    "detail": "20 references, missing=[], retired=[]"
+  },
+  "G4_verbatim_tables_byte_identical": {
+    "pass": true,
+    "detail": "['T1_headline.tex', 'T5_other_systems.tex', 'lemmas.tex', 'windows.tex', 'constants.tex']; mismatches: []"
+  },
+  "G5_generated_tables_regenerate_byte_identical": {
+    "pass": true,
+    "detail": "['numbers.tex', 'numbers.json', 'T2_compact.tex', 'T2_compact.md', 'lemmas.md', 'windows.md']"
+  },
+  "G6_prose_numbers_match_sources": {
+    "pass": true,
+    "detail": "11 numbers checked; mismatches: []"
+  },
+  "G7_revised_constants_le_draft": {
+    "pass": true,
+    "detail": "mu=1.171 <= L=3.052; both Lemma factors compared at s in (1,2,5,10)"
+  },
+  "G8_revised_bounds_hold_on_probes": {
+    "pass": true,
+    "detail": "2424 + 2424 probe points"
+  },
+  "G9_markdown_complete": {
+    "pass": true,
+    "detail": "sections missing=[]; figures md/tex=20/20; tables md/tex=5/5"
+  },
+  "G10_pdf_built": {
+    "pass": true,
+    "detail": "pages=26"
+  }
+}
