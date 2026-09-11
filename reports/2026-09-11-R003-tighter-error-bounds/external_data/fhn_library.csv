@@ -1,0 +1,21 @@
+index,monomial,equation,p_true
+1,1,dv/dt,0.5
+2,w,dv/dt,-1.0
+3,w^2,dv/dt,0.0
+4,w^3,dv/dt,0.0
+5,v,dv/dt,1.0
+6,v * w,dv/dt,0.0
+7,v * w^2,dv/dt,0.0
+8,v^2,dv/dt,0.0
+9,v^2 * w,dv/dt,0.0
+10,v^3,dv/dt,-0.3333333333333333
+11,1,dw/dt,0.055999999999999994
+12,w,dw/dt,-0.064
+13,w^2,dw/dt,0.0
+14,w^3,dw/dt,0.0
+15,v,dw/dt,0.08
+16,v * w,dw/dt,0.0
+17,v * w^2,dw/dt,0.0
+18,v^2,dw/dt,0.0
+19,v^2 * w,dw/dt,0.0
+20,v^3,dw/dt,0.0

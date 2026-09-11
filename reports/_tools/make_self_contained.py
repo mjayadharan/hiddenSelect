@@ -73,6 +73,11 @@ REPORTS = {
         reproduce="See REPRODUCE.md in the folder (Julia stages 00-09 with sharded batches, then Python inventory/tables/figures/animation/gates, pdflatex x2).",
         skip_generated_docs=True,
     ),
+    "2026-09-11-R003-tighter-error-bounds": dict(
+        data_roots=[],   # inputs are 7 small R002 result files copied into external_data/ (hashes in INPUTS.md); deps/ empty (nothing imported)
+        reproduce="See REPRODUCE.md in the folder (Python: compute_R003.py, make_tables.py, figures/make_figures.py, verify_R003.py; pdflatex x2).",
+        skip_generated_docs=True,
+    ),
     # ---- TEMPLATE: one entry per report, added when the report is created.
     # data_roots: list of (path-relative-to-repo, "produced by ..." note).
     #   A file is hashed; a directory is summarized (size + tracked count).

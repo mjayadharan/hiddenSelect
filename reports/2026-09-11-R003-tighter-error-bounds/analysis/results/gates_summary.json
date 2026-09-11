@@ -1,0 +1,34 @@
+{
+  "G1_inputs_match_INPUTS_hashes": {
+    "pass": true,
+    "detail": "7 files hashed; mismatches: []"
+  },
+  "G2_constants_match_R002": {
+    "pass": true,
+    "detail": "{\"L\": \"9.79e-06\", \"mu\": \"2.35e-05\", \"Lbox\": \"0.00e+00\", \"mu_box_vs_analytic\": \"0.00e+00\"}"
+  },
+  "G3_mu_le_L_and_muD_is_one": {
+    "pass": true,
+    "detail": "mu=1.171 <= L=3.052; mu_D=1.000000000000"
+  },
+  "G4_lemma1_original_bounds_hold": {
+    "pass": true,
+    "detail": "2424 probe points"
+  },
+  "G5_lemma1_proposed_bounds_hold": {
+    "pass": true,
+    "detail": "max ratio/upper = 1.000000"
+  },
+  "G6_lemma2_original_bound_holds": {
+    "pass": true,
+    "detail": "2424 probe points"
+  },
+  "G7_lemma2_proposed_bound_holds": {
+    "pass": true,
+    "detail": "max ratio/bound = 0.3757"
+  },
+  "G8_tables_regenerate_byte_identical": {
+    "pass": true,
+    "detail": "['constants.tex', 'lemmas.tex', 'windows.tex']"
+  }
+}
