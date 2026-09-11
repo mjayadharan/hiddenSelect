@@ -44,6 +44,9 @@ $PY tables/make_tables.py           # tables/T*.tex|md|csv, table_numbers.json
 $PY figures/concept_figures.py      # fig01–fig07 (concept schematics)
 $PY figures/make_figures.py         # fig08–fig37 (result figures)
 $PY figures/make_animation.py       # anim_sweep.gif + frames
+$J analysis/10_animation_data.jl    # landscape at every κ, concept segments, LV fits (~2 min)
+$PY figures/make_animations.py      # six MP4s (uses the FFMPEG_jll artifact binary, see script header)
+$PY slides/make_deck.py             # slides/multishooting_story.pptx ; python slides/qa_geometry.py for the layout check
 $PY analysis/verify_R002.py         # gates -> analysis/results/gates_summary.json
 $PY analysis/print_prose_facts.py   # analysis/number_manifest.md
 pdflatex -interaction=nonstopmode -halt-on-error report.tex

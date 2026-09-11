@@ -56,7 +56,19 @@
 | Figure 36 | Lorenz (30 coefficients, chaotic) | GP+BFGS recovers Lorenz (score 0.83); GP+Nelder–Mead does not converge; the control fails in 4 of 4 seeds. |
 | Figure 37 | Hessian at the GP minimisers; cost along the segment between consecutive minimisers; cross-evaluation | The strong-convexity premise is not verified at Nelder–Mead's returned iterates (positive definite in 36 % of cells); the carried guess sits inside the next basin. |
 
-Animation: `figures/anim_sweep.gif` (one frame per window size; frames in `figures/anim_frames/`). Every figure exists as PDF and PNG under `figures/`.
+Animations (MP4, H.264; frames regenerable by `figures/make_animations.py`; the GIF `anim_sweep.gif` is the same content as the first one):
+
+- `figures/anim_fhn_sweep.mp4` — FHN: $`v(t)`$ fit from the minimiser at every stage, GP vs control (seed 2), with the running cost and error.
+
+- `figures/anim_fhn_phase.mp4` — FHN: the same sweep in the $`(v,w)`$ phase plane with the coefficient bars against the truth.
+
+- `figures/anim_fhn_multiple_shooting.mp4` — concept: single shooting drawn forward in time at a wrong $`p`$, then the $`\kappa=10`$ windows appearing one by one, then node removal ($`\kappa=1\to100`$) with the cost of the wrong and true $`p`$.
+
+- `figures/anim_fhn_landscape.mp4` — FHN: the 2-D cost landscape in the $`(v,v^3)`$ plane morphing through every stage of the FULL schedule, with the GP and control paths (seed 2) overlaid (data: `anim_landscape_v_v3.csv`, script `analysis/10_animation_data.jl`).
+
+- `figures/anim_lv_sweep.mp4`, `figures/anim_lv_phase.mp4` — Lotka–Volterra: $`x(t),y(t)`$ fits, phase plane and coefficients along the sweep, GP vs control (seed 1).
+
+A slide deck telling the story in 8 slides is in `slides/multishooting_story.pptx` (built by `slides/make_deck.py` from these figures and `tables/table_numbers.json`). Every figure exists as PDF and PNG under `figures/`.
 
 # Introduction
 
