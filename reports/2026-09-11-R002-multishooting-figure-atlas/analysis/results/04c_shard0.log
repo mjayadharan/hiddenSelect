@@ -1,0 +1,10 @@
+shard 0/6: 8 of 522 jobs (after resume skip)
+[0] 1/8 noise/reset/seed1 done, 4.0 s
+[0] 2/8 noise/reset/seed1 done, 4.0 s
+[0] 3/8 noise/reset/seed1 done, 4.0 s
+[0] 4/8 noise/reset/seed1 done, 4.0 s
+[0] 5/8 noise/reset/seed1 done, 4.0 s
+[0] 6/8 noise/reset/seed1 done, 4.0 s
+[0] 7/8 substeps/S1/seed3 done, 5.0 s
+[0] 8/8 substeps/S10/seed3 done, 19.0 s
+shard 0 done in 19.0 s

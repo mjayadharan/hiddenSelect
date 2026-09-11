@@ -1,0 +1,22 @@
+eval done: ptrue κ=1
+eval done: ptrue κ=5
+eval done: ptrue κ=25
+eval done: ptrue κ=100
+eval done: ptrue_plus_0.02randn_seed1 κ=1
+eval done: ptrue_plus_0.02randn_seed1 κ=5
+eval done: ptrue_plus_0.02randn_seed1 κ=25
+eval done: ptrue_plus_0.02randn_seed1 κ=100
+eval done: ptrue_plus_0.02randn_seed2 κ=1
+eval done: ptrue_plus_0.02randn_seed2 κ=5
+eval done: ptrue_plus_0.02randn_seed2 κ=25
+eval done: ptrue_plus_0.02randn_seed2 κ=100
+stage 1 done in 14.9 s; 168 rows, 0 failures
+estimated stage-2 stiff sweep wall time: 127.0 s
+sweep (a) seed=1 done, final p_err=1.840755564960906
+sweep (a) seed=2 done, final p_err=0.6778436718193814
+sweep diffeq_Tsit5_adaptive seed=1 done, final p_err=1.840755564960906, wall=0.1 s
+sweep diffeq_Tsit5_adaptive seed=2 done, final p_err=1.0752127686088895, wall=5.0 s
+sweep diffeq_Rosenbrock23_adaptive seed=1 done, final p_err=1.840755564960906, wall=0.7 s
+sweep diffeq_Rosenbrock23_adaptive seed=2 done, final p_err=1.063850982066965, wall=52.5 s
+stage 2 done in 67.1 s
+05 done

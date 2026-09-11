@@ -1,0 +1,2 @@
+merged: 196 sweep rows, 4872 minimizer rows, from 28 jobs (of 28 planned)
+07 merge done: lv N=101 Δt=0.25 | lorenz N=101 Δt=0.020000000000000018 | lorenz rhs check=2.2737367544323206e-13

@@ -1,0 +1,21 @@
+index,old_label,new_label,p_true_new_order,value_old_order_reads
+1,dv/dt:1,dv/dt:1,0.5,0.5
+2,dv/dt:v,dv/dt:w,-1.0,0.0
+3,dv/dt:w,dv/dt:w^2,0.0,0.0
+4,dv/dt:v^2,dv/dt:w^3,0.0,-0.3333333333333333
+5,dv/dt:v w,dv/dt:v,1.0,-1.0
+6,dv/dt:w^2,dv/dt:v * w,0.0,1.0
+7,dv/dt:v^3,dv/dt:v * w^2,0.0,0.0
+8,dv/dt:v^2 w,dv/dt:v^2,0.0,0.0
+9,dv/dt:v w^2,dv/dt:v^2 * w,0.0,0.0
+10,dv/dt:w^3,dv/dt:v^3,-0.3333333333333333,0.0
+11,dw/dt:1,dw/dt:1,0.055999999999999994,0.055999999999999994
+12,dw/dt:v,dw/dt:w,-0.064,0.0
+13,dw/dt:w,dw/dt:w^2,0.0,0.0
+14,dw/dt:v^2,dw/dt:w^3,0.0,0.0
+15,dw/dt:v w,dw/dt:v,0.08,-0.064
+16,dw/dt:w^2,dw/dt:v * w,0.0,0.08
+17,dw/dt:v^3,dw/dt:v * w^2,0.0,0.0
+18,dw/dt:v^2 w,dw/dt:v^2,0.0,0.0
+19,dw/dt:v w^2,dw/dt:v^2 * w,0.0,0.0
+20,dw/dt:w^3,dw/dt:v^3,0.0,0.0

@@ -68,6 +68,11 @@ PY = "/opt/anaconda3/bin/python3"   # gate harness only; the analysis is Julia 1
 # file, summarized if a directory. reproduce: the ordered command section.
 # ---------------------------------------------------------------------------
 REPORTS = {
+    "2026-09-11-R002-multishooting-figure-atlas": dict(
+        data_roots=[],   # Mode A: no external inputs; deps/ (post-fix) + deps/prefix/ (44abf4a) frozen by hand, see deps/MANIFEST.md
+        reproduce="See REPRODUCE.md in the folder (Julia stages 00-09 with sharded batches, then Python inventory/tables/figures/animation/gates, pdflatex x2).",
+        skip_generated_docs=True,
+    ),
     # ---- TEMPLATE: one entry per report, added when the report is created.
     # data_roots: list of (path-relative-to-repo, "produced by ..." note).
     #   A file is hashed; a directory is summarized (size + tracked count).
@@ -206,7 +211,7 @@ def main():
                          for f in (rpt / sub).glob("*.py"))
         deps_ok = vendor_deps(rpt, check) if needs_deps else None
         edits = edit_scripts(rpt, check)
-        if not check:
+        if not check and not cfg.get("skip_generated_docs"):   # a report may keep hand-written INPUTS.md/REPRODUCE.md
             write_inputs(rpt, cfg)
             write_reproduce(rpt, cfg)
         print(f"== {name}: deps={'n/a' if deps_ok is None else deps_ok}, "

@@ -1,0 +1,74 @@
+{
+ "G1_deps_frozen_matches_manifest": {
+  "pass": true,
+  "detail": "12 files checked"
+ },
+ "G2_core_loss_equals_frozen_mod8_loss": {
+  "pass": true,
+  "detail": "max rel diff 1.92e-13 over 7 \u03ba \u00d7 6 p"
+ },
+ "G3_dataset_equals_frozen_mod8_block": {
+  "pass": true,
+  "detail": "max abs diff 6.44e-15"
+ },
+ "G4_rhs_identities": {
+  "pass": true,
+  "detail": "vs odefun_poly! 2.8e-14; vs old-order odefun (permuted) 5.7e-14"
+ },
+ "G5_F1_bug_present_prefix_linear_truncation_absent_fixed": {
+  "pass": true,
+  "detail": "J11 prefix 1.0 vs fixed -1.25 (exact -1.25); max|fixed-exact| 0.0"
+ },
+ "G6_F2_bug_present_prefix_drops_w_residual_absent_fixed": {
+  "pass": true,
+  "detail": "missing at p*: 11.5%, 9.3%, 17.0%, 11.2%, 11.9%; max|fixed-explicit| 3.0e-10"
+ },
+ "G7_F4_bug_present_prefix_gradient_is_single_shooting": {
+  "pass": true,
+  "detail": "cos at \u03ba=1: 0.180, \u03ba=5: 0.989, \u03ba=100: 1.0000"
+ },
+ "G8_ordering_bug_present_prefix_mod8_driver": {
+  "pass": true,
+  "detail": "spurious \u2016p\u2212p*\u2016 2.501; J(p*) old-order/correct at \u03ba=1: 0.684/0.0177"
+ },
+ "G9_shadowing_bug_present_prefix_absent_fixed": {
+  "pass": true,
+  "detail": "pre-fix J identical for 3 datasets; post-fix differs"
+ },
+ "G10_main_sweep_complete": {
+  "pass": true,
+  "detail": "384 rows (expected 384)"
+ },
+ "G11_GP_better_than_control_cellwise": {
+  "pass": true,
+  "detail": "tied at \u03ba=1: True; GP strictly better in \u22657/8 seeds at every \u03ba\u22652 (min 7); seeds starting on the plateau: 1"
+ },
+ "G12_paired_CI_excludes_zero_at_k100": {
+  "pass": true,
+  "detail": "GP\u2212control at \u03ba=100: -1.138 [-1.426, -0.772]"
+ },
+ "G13_control_plateau_is_the_seed": {
+  "pass": true,
+  "detail": "33 control rows on the plateau all return the seed"
+ },
+ "G14_inhouse_S10_matches_adaptive_reference": {
+  "pass": true,
+  "detail": "max |J\u2212J_ref| 3.7e-10 over \u03ba\u2208[1, 5, 25, 100]"
+ },
+ "G15_other_systems_GP_better_every_seed": {
+  "pass": true,
+  "detail": "lorenz/bfgs: 4/4; lorenz/nm: 4/4; lv/nm: 6/6"
+ },
+ "G16_all_planned_sweep_jobs_realised": {
+  "pass": true,
+  "detail": "598 done of 522 planned"
+ },
+ "G17_figures_and_ledger_present": {
+  "pass": true,
+  "detail": "37 figures referenced; missing: []"
+ },
+ "G18_T1_reproduces": {
+  "pass": true,
+  "detail": "median \u2016p\u2212p*\u2016 per \u03ba recomputed = tables/T1_headline.csv"
+ }
+}

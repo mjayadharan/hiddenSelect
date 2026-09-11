@@ -1,0 +1,628 @@
+[
+ {
+  "figure_id": "fig01",
+  "source_files": [
+   {
+    "path": "analysis/results/fhn_data.csv",
+    "sha256": "b9172358bb50071dd3b898c75c21ded61d0ca76f415fab40e7ea41d3d558e5dd"
+   },
+   {
+    "path": "analysis/results/fhn_fine.csv",
+    "sha256": "5a7926101cbaa056ca1389dac3b05276cf787ccabdc48f5f6d25c0268a984adb"
+   },
+   {
+    "path": "analysis/results/fhn_library.csv",
+    "sha256": "40a6b2bf428ecc8e6deb6d41889fd88d84e0b984b94b613e8308ac379f6b82ae"
+   },
+   {
+    "path": "analysis/results/fhn_vector_field.csv",
+    "sha256": "563f9e35f82eeae29f8e973981b98aa7c5593ae679de0526387c2d403054aa78"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/concept_figures.py"
+ },
+ {
+  "figure_id": "fig02",
+  "source_files": [
+   {
+    "path": "analysis/results/concept_costs.csv",
+    "sha256": "8f39c2fe885674c9b6078e1ce59b5e5f99b673560be0898150cf407943f0ed35"
+   },
+   {
+    "path": "analysis/results/concept_segments.csv",
+    "sha256": "60ebb211eaa22a6ad9987ffcb33e3ea57b37920a56f4fbe4c2790094c77a1bd1"
+   }
+  ],
+  "selector": [
+   "param=wrong"
+  ],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/concept_figures.py"
+ },
+ {
+  "figure_id": "fig03",
+  "source_files": [],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/concept_figures.py"
+ },
+ {
+  "figure_id": "fig04",
+  "source_files": [
+   {
+    "path": "analysis/results/concept_costs.csv",
+    "sha256": "8f39c2fe885674c9b6078e1ce59b5e5f99b673560be0898150cf407943f0ed35"
+   },
+   {
+    "path": "analysis/results/concept_segments.csv",
+    "sha256": "60ebb211eaa22a6ad9987ffcb33e3ea57b37920a56f4fbe4c2790094c77a1bd1"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/concept_figures.py"
+ },
+ {
+  "figure_id": "fig05",
+  "source_files": [],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/concept_figures.py"
+ },
+ {
+  "figure_id": "fig06",
+  "source_files": [
+   {
+    "path": "analysis/results/landscape_1d_slices.csv",
+    "sha256": "1a5e9941a8de517c70738d5d7ba0e110fb55360183bcae9e4d2c30e67002dca5"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/concept_figures.py"
+ },
+ {
+  "figure_id": "fig07",
+  "source_files": [],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/concept_figures.py"
+ },
+ {
+  "figure_id": "fig08",
+  "source_files": [
+   {
+    "path": "analysis/results/concept_meta.json",
+    "sha256": "9fa95a77af51e600f652d31f283c6a8ccc267b5acb267b85b70afc5195b59d91"
+   },
+   {
+    "path": "analysis/results/lemma1_flow_sensitivity.csv",
+    "sha256": "5e795b19c5655c77247cae31774460f908de7f7a980141a4fcb899441f73f4be"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig09",
+  "source_files": [
+   {
+    "path": "analysis/results/lemma2_param_sensitivity.csv",
+    "sha256": "31171a843bb73e8ff3ebedb93dfe7c8494757af7b3afb66ee14f8a8712506ba2"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig10",
+  "source_files": [
+   {
+    "path": "analysis/results/prop1_node_removal.csv",
+    "sha256": "e92e04d63af4151dadd0920cd8bcdf209845eaa7129c2c74fb8a05e4988855a8"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig11",
+  "source_files": [
+   {
+    "path": "analysis/results/landscape_2d_v_v3.csv",
+    "sha256": "45498688b7406dbfdcad50826f3766d48adc9fd5e273c7fd5d0b960c25c3613e"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig12",
+  "source_files": [
+   {
+    "path": "analysis/results/landscape_2d_w_wv.csv",
+    "sha256": "7582252b19b51b846f95e3e07c045f5d31d1e5966c61dfc435520647130a45e1"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig13",
+  "source_files": [
+   {
+    "path": "analysis/results/landscape_1d_minima.csv",
+    "sha256": "48db40478c35413739be4631cabd82c675e52d61dfec8f8d7994c34b25b1c3dc"
+   },
+   {
+    "path": "analysis/results/landscape_1d_slices.csv",
+    "sha256": "1a5e9941a8de517c70738d5d7ba0e110fb55360183bcae9e4d2c30e67002dca5"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig14",
+  "source_files": [
+   {
+    "path": "analysis/results/hessian_at_ptrue.csv",
+    "sha256": "5be3063490cd4429622d271772b8b47e7d4f847e2c31b2cfe62e1344a4b839b6"
+   },
+   {
+    "path": "analysis/results/landscape_x0_sensitivity.csv",
+    "sha256": "76c469f07d6a93a2ddc7231163d21f68f5d675a3553236322bcb222efb10f94e"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig15",
+  "source_files": [
+   {
+    "path": "analysis/results/sweeps.csv",
+    "sha256": "98f73d9fc1a6ceab8d331d421b3d711d45563e5fea9884670531d630142d760f"
+   }
+  ],
+  "selector": [
+   "exp=main"
+  ],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig16",
+  "source_files": [
+   {
+    "path": "analysis/results/derived_paired_main.csv",
+    "sha256": "ccfe9cd744d122490c9c5a7948b03b29a4ee4a29ea7ceb3ab433e14b007ac5fb"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig17",
+  "source_files": [
+   {
+    "path": "analysis/results/sweep_minimizers.csv",
+    "sha256": "b2df9caad8cef536f734184e0da1c55a0ba71072714a7ec229825eee051d1bb8"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig18",
+  "source_files": [
+   {
+    "path": "analysis/results/sweep_fits.csv",
+    "sha256": "682d056491aeaf7a09e6ad4fa04d463928e836005240316a00ee99ae025eb2f3"
+   },
+   {
+    "path": "analysis/results/sweeps.csv",
+    "sha256": "98f73d9fc1a6ceab8d331d421b3d711d45563e5fea9884670531d630142d760f"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig19",
+  "source_files": [
+   {
+    "path": "analysis/results/traces_seed2.csv",
+    "sha256": "f13fdc2030f76ce8d9a107b67a72273b51443f0cc6888f26b1945d88d1f36d03"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig20",
+  "source_files": [
+   {
+    "path": "analysis/results/sweep_minimizers.csv",
+    "sha256": "b2df9caad8cef536f734184e0da1c55a0ba71072714a7ec229825eee051d1bb8"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig21",
+  "source_files": [
+   {
+    "path": "analysis/results/sweeps.csv",
+    "sha256": "98f73d9fc1a6ceab8d331d421b3d711d45563e5fea9884670531d630142d760f"
+   }
+  ],
+  "selector": [
+   "exp=schedule"
+  ],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig22",
+  "source_files": [
+   {
+    "path": "analysis/results/sweeps.csv",
+    "sha256": "98f73d9fc1a6ceab8d331d421b3d711d45563e5fea9884670531d630142d760f"
+   }
+  ],
+  "selector": [
+   "exp=penalty"
+  ],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig23",
+  "source_files": [
+   {
+    "path": "analysis/results/sweeps.csv",
+    "sha256": "98f73d9fc1a6ceab8d331d421b3d711d45563e5fea9884670531d630142d760f"
+   }
+  ],
+  "selector": [
+   "exp=noise"
+  ],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig24",
+  "source_files": [
+   {
+    "path": "analysis/results/sweep_minimizers.csv",
+    "sha256": "b2df9caad8cef536f734184e0da1c55a0ba71072714a7ec229825eee051d1bb8"
+   },
+   {
+    "path": "analysis/results/sweeps.csv",
+    "sha256": "98f73d9fc1a6ceab8d331d421b3d711d45563e5fea9884670531d630142d760f"
+   }
+  ],
+  "selector": [
+   "exp=sparsity"
+  ],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig25",
+  "source_files": [
+   {
+    "path": "analysis/results/sweeps.csv",
+    "sha256": "98f73d9fc1a6ceab8d331d421b3d711d45563e5fea9884670531d630142d760f"
+   }
+  ],
+  "selector": [
+   "exp=optimizer"
+  ],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig26",
+  "source_files": [
+   {
+    "path": "analysis/results/sweeps.csv",
+    "sha256": "98f73d9fc1a6ceab8d331d421b3d711d45563e5fea9884670531d630142d760f"
+   }
+  ],
+  "selector": [
+   "exp=basin"
+  ],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig27",
+  "source_files": [
+   {
+    "path": "analysis/results/sweeps.csv",
+    "sha256": "98f73d9fc1a6ceab8d331d421b3d711d45563e5fea9884670531d630142d760f"
+   }
+  ],
+  "selector": [
+   "exp=iters",
+   "exp=substeps"
+  ],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig28",
+  "source_files": [
+   {
+    "path": "analysis/results/sweeps.csv",
+    "sha256": "98f73d9fc1a6ceab8d331d421b3d711d45563e5fea9884670531d630142d760f"
+   }
+  ],
+  "selector": [
+   "exp=seedscale"
+  ],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig29",
+  "source_files": [
+   {
+    "path": "analysis/results/solvers_eval.csv",
+    "sha256": "e394bd65e3db6d1d9bd71abe6c622a66186f1bda216116bb4d1bf5355f21198e"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig30",
+  "source_files": [
+   {
+    "path": "analysis/results/solvers_sweep.csv",
+    "sha256": "b5e37a7462a6296fbea9df601e23fc0c37b02f3d0ae9c581181b32122fe1a7e9"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig31",
+  "source_files": [
+   {
+    "path": "analysis/results/bug_F2_slice.csv",
+    "sha256": "a44f01ce410a30917ce7ddf0aa06f482f9b6bba67009a0df18c8aaf245232a7f"
+   },
+   {
+    "path": "analysis/results/bug_F2_w_residual.csv",
+    "sha256": "75537f3a43f555a81cec314bcca85e69c6dcb92b830469040021c3f04776cd8b"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig32",
+  "source_files": [
+   {
+    "path": "analysis/results/bug_F1_jacobian.csv",
+    "sha256": "2ffdbbe71e45b4b0c1e28508394cdb2a39b66396d2158f30e435179919eb1df6"
+   },
+   {
+    "path": "analysis/results/bug_F1_meta.json",
+    "sha256": "25dc0e91ccda8033b0cd4e38f05134357ca3fc56f3c8459d62351431276e4d92"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig33",
+  "source_files": [
+   {
+    "path": "analysis/results/bug_F4_bfgs.csv",
+    "sha256": "ac18c4ba0f194d1cb4ee9bf7115df844a5039fa602e453f5a1ef778e246ff266"
+   },
+   {
+    "path": "analysis/results/bug_F4_gradient.csv",
+    "sha256": "3316a54b46e79a3ff3bd504387ea9c21cb3f41e74a836c21b9e3e4b60fdf8078"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig34",
+  "source_files": [
+   {
+    "path": "analysis/results/bug_ordering.csv",
+    "sha256": "744d7cd424a02778e9287b70fa4644ca1cea8dce1e65e3d8ef9db6cfcb5686bf"
+   },
+   {
+    "path": "analysis/results/bug_ordering_meta.json",
+    "sha256": "2905e9a21d747f936982b298d2cbf50aad86af374efb149b834689c174efb585"
+   },
+   {
+    "path": "analysis/results/bug_shadowing.csv",
+    "sha256": "91e323e7f243d8f74966920023b519a0f564a4ecff04245111e42e161a8e2160"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig35",
+  "source_files": [
+   {
+    "path": "analysis/results/other_fits.csv",
+    "sha256": "67f7d3ca3346525d6fee850ef820aec8d04a03a5659f350545d31ef263c629c9"
+   },
+   {
+    "path": "analysis/results/other_sweeps.csv",
+    "sha256": "dfaa74ee7d18e210c023f5932ee55f004c3befbf68c00a62bb64f6bfdedfd946"
+   }
+  ],
+  "selector": [
+   "system=lv"
+  ],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig36",
+  "source_files": [
+   {
+    "path": "analysis/results/other_fits.csv",
+    "sha256": "67f7d3ca3346525d6fee850ef820aec8d04a03a5659f350545d31ef263c629c9"
+   },
+   {
+    "path": "analysis/results/other_minimizers.csv",
+    "sha256": "e211e48f585426c65545dfcd77f83b399148c2d936eab77593fdb5620694fd8d"
+   },
+   {
+    "path": "analysis/results/other_sweeps.csv",
+    "sha256": "dfaa74ee7d18e210c023f5932ee55f004c3befbf68c00a62bb64f6bfdedfd946"
+   }
+  ],
+  "selector": [
+   "system=lorenz"
+  ],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "fig37",
+  "source_files": [
+   {
+    "path": "analysis/results/post_cross_evaluation.csv",
+    "sha256": "73a3ba67d2e76938e6c63d53000228946f856f67a5277b36030418c8b41eaf28"
+   },
+   {
+    "path": "analysis/results/post_hessian_at_minimizers.csv",
+    "sha256": "42d73be031e318569d39da90aa7e51b7c5247ef3e074a16ab757d40d9d4f7468"
+   },
+   {
+    "path": "analysis/results/post_path_between_minimizers.csv",
+    "sha256": "dd92150d9b4ee0a8d16a2c452e8e4566fa6f93f6c6b51cf88a840086527d5914"
+   }
+  ],
+  "selector": [],
+  "status": "COVERED (computed in-folder, Mode A)",
+  "premise": "planning/ATLAS_CONTEXT.md",
+  "script": "figures/make_figures.py"
+ },
+ {
+  "figure_id": "T1",
+  "source_files": [
+   {
+    "path": "analysis/results/sweeps.csv",
+    "sha256": "98f73d9fc1a6ceab8d331d421b3d711d45563e5fea9884670531d630142d760f"
+   }
+  ],
+  "status": "COVERED",
+  "script": "tables/make_tables.py"
+ },
+ {
+  "figure_id": "T2",
+  "source_files": [
+   {
+    "path": "analysis/results/sweeps.csv",
+    "sha256": "98f73d9fc1a6ceab8d331d421b3d711d45563e5fea9884670531d630142d760f"
+   }
+  ],
+  "status": "COVERED",
+  "script": "tables/make_tables.py"
+ },
+ {
+  "figure_id": "T3",
+  "source_files": [
+   {
+    "path": "analysis/results/solvers_eval.csv",
+    "sha256": "e394bd65e3db6d1d9bd71abe6c622a66186f1bda216116bb4d1bf5355f21198e"
+   }
+  ],
+  "status": "COVERED",
+  "script": "tables/make_tables.py"
+ },
+ {
+  "figure_id": "T4",
+  "source_files": [
+   {
+    "path": "analysis/results/bug_summary.json",
+    "sha256": "6cc100f186999de4e17ea1ff375ce30c580d19df4a2e818374bfdbb948309650"
+   }
+  ],
+  "status": "COVERED",
+  "script": "tables/make_tables.py"
+ },
+ {
+  "figure_id": "T5",
+  "source_files": [
+   {
+    "path": "analysis/results/other_sweeps.csv",
+    "sha256": "dfaa74ee7d18e210c023f5932ee55f004c3befbf68c00a62bb64f6bfdedfd946"
+   }
+  ],
+  "status": "COVERED",
+  "script": "tables/make_tables.py"
+ }
+]

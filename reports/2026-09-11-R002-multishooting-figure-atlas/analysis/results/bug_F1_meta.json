@@ -1,0 +1,16 @@
+{
+  "J11_exact_at_uref": -1.25,
+  "J11_fixed_at_uref": -1.25,
+  "J11_prefix_at_uref": 1.0,
+  "jac_exact_at_uref": [-1.25, 0.08, -1.0, -0.064],
+  "jac_fixed_at_uref": [-1.25, 0.08, -1.0, -0.064],
+  "jac_prefix_at_uref": [1.0, 0.08, -1.0, -0.064],
+  "max_abs_fixed_minus_exact_over_trajectory": 0.0,
+  "mod6_fixed_sha256": "763e765818076f4f0287af1d94b307c662e505cd2537feda3781a8cb935bd58f",
+  "mod6_prefix_sha256": "a8785cf4814f649c84e943d0ea84d03cfc990136606102c12a36695a9d7a1577",
+  "n_trajectory_points": 401,
+  "rhs_exact_at_uref": [0.4750000000000001, 0.15039999999999998],
+  "rhs_fixed_at_uref": [0.4750000000000001, 0.15039999999999998],
+  "rhs_prefix_at_uref": [1.6, 0.15039999999999998],
+  "u_ref": [1.5, 0.4]
+}

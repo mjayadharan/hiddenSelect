@@ -1,0 +1,23 @@
+shard 4/8: 21 of 522 jobs (after resume skip)
+[4] 1/21 sparsity/gamma0.0/seed1 done, 4.0 s
+[4] 2/21 sparsity/gamma0.001/seed3 done, 18.0 s
+[4] 3/21 sparsity/gamma0.01/seed5 done, 31.0 s
+[4] 4/21 sparsity/gamma0.2/seed1 done, 31.0 s
+[4] 5/21 sparsity/gamma1.0/seed3 done, 45.0 s
+[4] 6/21 seedscale/sc0.01_propagate_flat/seed5 done, 58.0 s
+[4] 7/21 seedscale/sc0.01_propagate_graded/seed5 done, 71.0 s
+[4] 8/21 seedscale/sc0.01_reset_flat/seed5 done, 84.0 s
+[4] 9/21 seedscale/sc0.01_reset_graded/seed5 done, 97.0 s
+[4] 10/21 seedscale/sc0.03_propagate_flat/seed5 done, 110.0 s
+[4] 11/21 seedscale/sc0.03_propagate_graded/seed5 done, 123.0 s
+[4] 12/21 seedscale/sc0.03_reset_flat/seed5 done, 136.0 s
+[4] 13/21 seedscale/sc0.03_reset_graded/seed5 done, 149.0 s
+[4] 14/21 seedscale/sc0.1_propagate_flat/seed5 done, 163.0 s
+[4] 15/21 seedscale/sc0.1_propagate_graded/seed5 done, 176.0 s
+[4] 16/21 seedscale/sc0.1_reset_flat/seed5 done, 189.0 s
+[4] 17/21 seedscale/sc0.1_reset_graded/seed5 done, 202.0 s
+[4] 18/21 seedscale/sc0.3_propagate_flat/seed5 done, 216.0 s
+[4] 19/21 seedscale/sc0.3_propagate_graded/seed5 done, 229.0 s
+[4] 20/21 seedscale/sc0.3_reset_flat/seed5 done, 244.0 s
+[4] 21/21 seedscale/sc0.3_reset_graded/seed5 done, 256.0 s
+shard 4 done in 256.0 s

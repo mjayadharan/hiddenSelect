@@ -1,0 +1,17 @@
+shard 2/6: 15 of 522 jobs (after resume skip)
+[2] 1/15 schedule/coarse/seed7 done, 12.0 s
+[2] 2/15 schedule/jump/seed7 done, 16.0 s
+[2] 3/15 basin/k1/seed7 done, 18.0 s
+[2] 4/15 basin/k1/seed9 done, 20.0 s
+[2] 5/15 basin/k1/seed1 done, 22.0 s
+[2] 6/15 basin/k1/seed3 done, 23.0 s
+[2] 7/15 basin/k5/seed5 done, 25.0 s
+[2] 8/15 basin/k5/seed7 done, 27.0 s
+[2] 9/15 basin/k5/seed9 done, 29.0 s
+[2] 10/15 basin/k5/seed1 done, 29.0 s
+[2] 11/15 basin/k100/seed3 done, 31.0 s
+[2] 12/15 basin/k100/seed5 done, 33.0 s
+[2] 13/15 basin/k100/seed7 done, 36.0 s
+[2] 14/15 basin/k100/seed9 done, 38.0 s
+[2] 15/15 iters/it250/seed1 done, 38.0 s
+shard 2 done in 38.0 s

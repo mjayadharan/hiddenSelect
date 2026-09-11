@@ -1,0 +1,18 @@
+{
+  "Delta_t": 1.0,
+  "N": 101,
+  "S": 10,
+  "dataset_max_absdiff": 6.439293542825908e-15,
+  "delta_t": 0.1,
+  "frozen_mod8_sha256": "849105fcbeccc98fc5487bf3f17b9e78c17fb6ea1b14b1e0011afa44ac758f32",
+  "gamma": 0.05,
+  "grad_all_finite": true,
+  "grad_norm_at_ptrue_k5": 0.3464234786409125,
+  "loss_max_reldiff": 1.9167246295059277e-13,
+  "ms_per_gradient_k5": 21.27615625,
+  "ms_per_loss_eval_core_k100": 0.8850718750000001,
+  "ms_per_loss_eval_core_k5": 0.9187412500000001,
+  "ms_per_loss_eval_frozen_mod8_k5": 0.5648941799999999,
+  "rhs_vs_odefun_poly_max": 2.842170943040401e-14,
+  "rhs_vs_old_order_odefun_max": 5.684341886080802e-14
+}

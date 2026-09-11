@@ -1,0 +1,11 @@
+{
+  "J_correct_order_k1": 0.01773109828394226,
+  "J_correct_order_k100": 0.017576201469118733,
+  "J_correct_order_k5": 0.020895430727674334,
+  "J_old_order_k1": 0.6841519703418311,
+  "J_old_order_k100": 7.831729864499292,
+  "J_old_order_k5": 2.0623556486773684,
+  "mod8_prefix_sha256": "545d25540d9376dd5d653bb2229e42a408a855c7db78f348bdc46230e21fd3e3",
+  "p_true_norm": 1.5410201527271183,
+  "spurious_p_err": 2.500690749017603
+}

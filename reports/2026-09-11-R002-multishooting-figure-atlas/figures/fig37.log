@@ -1,0 +1,14 @@
+/Users/manu_jay/git_repos/hiddenSelect/reports/2026-09-11-R002-multishooting-figure-atlas/figures/style.py:53: UserWarning: Glyph 8594 (\N{RIGHTWARDS ARROW}) missing from font(s) Helvetica Neue.
+  fig.tight_layout()
+/Users/manu_jay/git_repos/hiddenSelect/reports/2026-09-11-R002-multishooting-figure-atlas/figures/style.py:53: UserWarning: Glyph 8593 (\N{UPWARDS ARROW}) missing from font(s) Helvetica Neue.
+  fig.tight_layout()
+/Users/manu_jay/git_repos/hiddenSelect/reports/2026-09-11-R002-multishooting-figure-atlas/figures/style.py:55: UserWarning: Glyph 8594 (\N{RIGHTWARDS ARROW}) missing from font(s) Helvetica Neue.
+  fig.savefig(OUT / f"{name}.{ext}", bbox_inches="tight", pad_inches=0.03)
+/Users/manu_jay/git_repos/hiddenSelect/reports/2026-09-11-R002-multishooting-figure-atlas/figures/style.py:55: UserWarning: Glyph 8593 (\N{UPWARDS ARROW}) missing from font(s) Helvetica Neue.
+  fig.savefig(OUT / f"{name}.{ext}", bbox_inches="tight", pad_inches=0.03)
+'created' timestamp seems very low; regarding as unix timestamp
+'modified' timestamp seems very low; regarding as unix timestamp
+'created' timestamp seems very low; regarding as unix timestamp
+'modified' timestamp seems very low; regarding as unix timestamp
+saved fig37_post_hessian_path
+DONE37

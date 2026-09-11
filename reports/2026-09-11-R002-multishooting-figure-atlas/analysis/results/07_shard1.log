@@ -1,0 +1,16 @@
+shard 1/2: 14 of 28 jobs
+[1] 1/14 lorenz/propagate/nm/seed2 done, 41.0 s
+[1] 2/14 lorenz/propagate/nm/seed4 done, 78.0 s
+[1] 3/14 lorenz/reset/nm/seed2 done, 88.0 s
+[1] 4/14 lorenz/reset/nm/seed4 done, 99.0 s
+[1] 5/14 lorenz/propagate/bfgs/seed2 done, 154.0 s
+[1] 6/14 lorenz/propagate/bfgs/seed4 done, 214.0 s
+[1] 7/14 lorenz/reset/bfgs/seed2 done, 258.0 s
+[1] 8/14 lorenz/reset/bfgs/seed4 done, 279.0 s
+[1] 9/14 lv/propagate/nm/seed2 done, 288.0 s
+[1] 10/14 lv/propagate/nm/seed4 done, 296.0 s
+[1] 11/14 lv/propagate/nm/seed6 done, 304.0 s
+[1] 12/14 lv/reset/nm/seed2 done, 309.0 s
+[1] 13/14 lv/reset/nm/seed4 done, 318.0 s
+[1] 14/14 lv/reset/nm/seed6 done, 323.0 s
+shard 1 done in 323.0 s

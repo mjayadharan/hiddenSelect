@@ -1,0 +1,6 @@
+table T1_headline (16, 14)
+table T2_variations (53, 7)
+table T3_solvers (14, 5)
+table T4_bugs (5, 3)
+table T5_other_systems (6, 7)
+numbers: 39

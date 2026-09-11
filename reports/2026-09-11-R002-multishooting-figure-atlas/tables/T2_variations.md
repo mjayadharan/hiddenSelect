@@ -1,0 +1,55 @@
+| experiment | arm | n_seeds | ‖p−p*‖ (κ=100) | score | plateau frac | wall s per κ |
+|---|---|---|---|---|---|---|
+| schedule | coarse | 8 | 0.5239 | 0.55 | 0.125 | 2.069 |
+| schedule | dense | 8 | 0.3015 | 0.8 | 0.125 | 2.072 |
+| schedule | jump | 8 | 0.7635 | 0.425 | 0.125 | 2.098 |
+| penalty | propagate_graded | 8 | 0.274 | 0.825 | 0 | 2.107 |
+| penalty | reset_graded | 8 | 1.631 | 0.3 | 0 | 1.88 |
+| noise | propagate σ=0.0 | 6 | 0.2313 | 0.8 | 0.1667 | 2.058 |
+| noise | propagate σ=0.01 | 6 | 0.3617 | 0.7 | 0.1667 | 2.117 |
+| noise | propagate σ=0.02 | 6 | 0.2482 | 0.875 | 0.1667 | 2.102 |
+| noise | propagate σ=0.05 | 6 | 0.2217 | 0.8 | 0.1667 | 2.087 |
+| noise | propagate σ=0.1 | 6 | 0.3135 | 0.625 | 0.1667 | 2.049 |
+| noise | propagate σ=0.2 | 6 | 1.881 | 0.225 | 0.1667 | 2.134 |
+| noise | reset σ=0.0 | 6 | 1.633 | 0.25 | 0.3333 | 1.845 |
+| noise | reset σ=0.01 | 6 | 1.602 | 0.2 | 0.3333 | 1.878 |
+| noise | reset σ=0.02 | 6 | 1.669 | 0.225 | 0.3333 | 1.876 |
+| noise | reset σ=0.05 | 6 | 1.649 | 0.25 | 0.3333 | 1.867 |
+| noise | reset σ=0.1 | 6 | 1.679 | 0.225 | 0.3333 | 1.847 |
+| noise | reset σ=0.2 | 6 | 1.702 | 0.2 | 0.3333 | 1.849 |
+| sparsity | 0.0 | 6 | 0.8142 | 0.375 | 0.1667 | 2.175 |
+| sparsity | 0.001 | 6 | 0.8433 | 0.475 | 0.1667 | 2.21 |
+| sparsity | 0.01 | 6 | 0.8875 | 0.525 | 0.1667 | 2.085 |
+| sparsity | 0.05 | 6 | 0.2217 | 0.8 | 0.1667 | 2.051 |
+| sparsity | 0.2 | 6 | 0.4741 | 0.65 | 0.1667 | 2.033 |
+| sparsity | 1.0 | 6 | 1.01 | 0.6 | 0.1667 | 2.003 |
+| optimizer | bfgs_propagate | 8 | 0.2053 | 0.95 | 0.125 | 1.439 |
+| optimizer | bfgs_reset | 8 | 1.648 | 0.225 | 0.625 | 13.55 |
+| optimizer | lbfgs_propagate | 8 | 0.2053 | 0.95 | 0.125 | 102.4 |
+| optimizer | lbfgs_reset | 8 | 1.648 | 0.225 | 0.625 | 15.25 |
+| iters | 250 | 4 | 1.722 | 0.325 | 0.25 | 0.431 |
+| iters | 500 | 4 | 1.426 | 0.2 | 0.25 | 0.8172 |
+| iters | 1000 | 4 | 0.6087 | 0.575 | 0.25 | 1.047 |
+| iters | 2500 | 4 | 0.2658 | 0.775 | 0.25 | 2.014 |
+| iters | 5000 | 4 | 0.1986 | 0.9 | 0.25 | 3.867 |
+| substeps | 1 | 4 | 0.4988 | 0.75 | 0 | 0.2064 |
+| substeps | 2 | 4 | 0.3377 | 0.675 | 0.25 | 0.4289 |
+| substeps | 5 | 4 | 0.2853 | 0.825 | 0.25 | 1.027 |
+| substeps | 10 | 4 | 0.2658 | 0.775 | 0.25 | 1.991 |
+| substeps | 20 | 4 | 0.2658 | 0.775 | 0.25 | 4.059 |
+| seedscale | sc0.01_propagate_flat | 8 | 0.1967 | 0.85 | 0 | 2.064 |
+| seedscale | sc0.01_propagate_graded | 8 | 0.1967 | 0.85 | 0 | 2.062 |
+| seedscale | sc0.01_reset_flat | 8 | 1.65 | 0.35 | 0.125 | 1.951 |
+| seedscale | sc0.01_reset_graded | 8 | 1.589 | 0.375 | 0 | 1.88 |
+| seedscale | sc0.03_propagate_flat | 8 | 0.2857 | 0.775 | 0 | 2.085 |
+| seedscale | sc0.03_propagate_graded | 8 | 0.2857 | 0.775 | 0 | 2.084 |
+| seedscale | sc0.03_reset_flat | 8 | 1.586 | 0.475 | 0.25 | 1.875 |
+| seedscale | sc0.03_reset_graded | 8 | 1.573 | 0.35 | 0 | 1.934 |
+| seedscale | sc0.1_propagate_flat | 8 | 0.2086 | 0.85 | 0.125 | 2.025 |
+| seedscale | sc0.1_propagate_graded | 8 | 0.2086 | 0.85 | 0 | 2.047 |
+| seedscale | sc0.1_reset_flat | 8 | 1.649 | 0.25 | 0.25 | 1.888 |
+| seedscale | sc0.1_reset_graded | 8 | 1.631 | 0.3 | 0 | 1.864 |
+| seedscale | sc0.3_propagate_flat | 8 | 0.4237 | 0.7 | 0.25 | 2.043 |
+| seedscale | sc0.3_propagate_graded | 8 | 0.3495 | 0.825 | 0.125 | 2.179 |
+| seedscale | sc0.3_reset_flat | 8 | 2.443 | 0.1 | 0.25 | 1.875 |
+| seedscale | sc0.3_reset_graded | 8 | 2.702 | 0.1 | 0.25 | 1.831 |

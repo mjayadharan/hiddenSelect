@@ -1,0 +1,22 @@
+{
+  "J_window_at_start": 35.756420846765856,
+  "correct_J_final": 0.04269559838013524,
+  "correct_converged": false,
+  "correct_error": null,
+  "correct_f_calls": 854,
+  "correct_g_calls": 854,
+  "correct_iterations": 300,
+  "correct_p_err": 3.955652470856294,
+  "correct_wall_s": 13.653626203536987,
+  "kappa_single": 100,
+  "kappa_window": 5,
+  "p_err_at_start": 0.22723411067563817,
+  "wrong_J_final": 1.508421099119918,
+  "wrong_converged": false,
+  "wrong_error": null,
+  "wrong_f_calls": 23708,
+  "wrong_g_calls": 23708,
+  "wrong_iterations": 300,
+  "wrong_p_err": 8.459841643500138,
+  "wrong_wall_s": 323.2070188522339
+}

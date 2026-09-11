@@ -1,0 +1,390 @@
+ERROR: LoadError: TaskFailedException
+
+    nested task error: Unable to read host:port string from worker. Launch command exited with error?
+    Stacktrace:
+     [1] worker_from_id(pg::Distributed.ProcessGroup, i::Int64)
+       @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:1093
+     [2] worker_from_id
+       @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:1090 [inlined]
+     [3] remote_do
+       @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/remotecall.jl:557 [inlined]
+     [4] kill(manager::Distributed.LocalManager, pid::Int64, config::WorkerConfig; exit_timeout::Int64, term_timeout::Int64)
+       @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/managers.jl:743
+     [5] kill
+       @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/managers.jl:741 [inlined]
+     [6] create_worker(manager::Distributed.LocalManager, wconfig::WorkerConfig)
+       @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:604
+     [7] setup_launched_worker(manager::Distributed.LocalManager, wconfig::WorkerConfig, launched_q::Vector{Int64})
+       @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:545
+     [8] (::Distributed.var"#45#48"{Distributed.LocalManager, Vector{Int64}, WorkerConfig})()
+       @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:501
+    
+    caused by: Unable to read host:port string from worker. Launch command exited with error?
+    Stacktrace:
+     [1] read_worker_host_port(io::Base.PipeEndpoint)
+       @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:330
+     [2] connect(manager::Distributed.LocalManager, pid::Int64, config::WorkerConfig)
+       @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/managers.jl:580
+     [3] create_worker(manager::Distributed.LocalManager, wconfig::WorkerConfig)
+       @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:600
+     [4] setup_launched_worker(manager::Distributed.LocalManager, wconfig::WorkerConfig, launched_q::Vector{Int64})
+       @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:545
+     [5] (::Distributed.var"#45#48"{Distributed.LocalManager, Vector{Int64}, WorkerConfig})()
+       @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:501
+
+...and 11 more exceptions.
+
+Stacktrace:
+ [1] sync_end(c::Channel{Any})
+   @ Base ./task.jl:466
+ [2] macro expansion
+   @ ./task.jl:499 [inlined]
+ [3] addprocs_locked(manager::Distributed.LocalManager; kwargs::@Kwargs{exeflags::Vector{String}})
+   @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:490
+ [4] addprocs_locked
+   @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:456 [inlined]
+ [5] addprocs(manager::Distributed.LocalManager; kwargs::@Kwargs{exeflags::Vector{String}})
+   @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:450
+ [6] addprocs
+   @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:443 [inlined]
+ [7] #addprocs#262
+   @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/managers.jl:470 [inlined]
+ [8] top-level scope
+   @ ~/git_repos/hiddenSelect/reports/2026-09-11-R002-multishooting-figure-atlas/analysis/04_sweeps.jl:15
+in expression starting at /Users/manu_jay/git_repos/hiddenSelect/reports/2026-09-11-R002-multishooting-figure-atlas/analysis/04_sweeps.jl:15
+	From worker startup:	ERROR: IOError: bind: operation not permitted (EPERM)
+	From worker startup:	Stacktrace:
+	From worker startup:	  [1] bind(sock::Sockets.TCPServer, host::Sockets.IPv4, port::UInt16; ipv6only::Bool, reuseaddr::Bool, kws::@Kwargs{})
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:271
+	From worker startup:	  [2] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:254 [inlined]
+	From worker startup:	  [3] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:284 [inlined]
+	From worker startup:	  [4] listenany(host::Sockets.IPv4, default_port::UInt16; backlog::Int64)
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:726
+	From worker startup:	  [5] listenany
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:722 [inlined]
+	From worker startup:	  [6] start_worker(out::Base.PipeEndpoint, cookie::String; close_stdin::Bool, stderr_to_stdout::Bool)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:245
+	From worker startup:	  [7] start_worker(out::Base.PipeEndpoint, cookie::String)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:232
+	From worker startup:	  [8] start_worker(cookie::String; kwargs::@Kwargs{})
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:231
+	From worker startup:	  [9] process_opts(opts::Base.JLOptions)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:1351
+	From worker startup:	 [10] #invokelatest#2
+	From worker startup:	    @ ./essentials.jl:1055 [inlined]
+	From worker startup:	 [11] invokelatest
+	From worker startup:	    @ ./essentials.jl:1052 [inlined]
+	From worker startup:	 [12] exec_options(opts::Base.JLOptions)
+	From worker startup:	    @ Base ./client.jl:273
+	From worker startup:	 [13] _start()
+	From worker startup:	    @ Base ./client.jl:531
+	From worker startup:	ERROR: IOError: bind: operation not permitted (EPERM)
+	From worker startup:	Stacktrace:
+	From worker startup:	  [1] bind(sock::Sockets.TCPServer, host::Sockets.IPv4, port::UInt16; ipv6only::Bool, reuseaddr::Bool, kws::@Kwargs{})
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:271
+	From worker startup:	  [2] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:254 [inlined]
+	From worker startup:	  [3] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:284 [inlined]
+	From worker startup:	  [4] listenany(host::Sockets.IPv4, default_port::UInt16; backlog::Int64)
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:726
+	From worker startup:	  [5] listenany
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:722 [inlined]
+	From worker startup:	  [6] start_worker(out::Base.PipeEndpoint, cookie::String; close_stdin::Bool, stderr_to_stdout::Bool)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:245
+	From worker startup:	  [7] start_worker(out::Base.PipeEndpoint, cookie::String)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:232
+	From worker startup:	  [8] start_worker(cookie::String; kwargs::@Kwargs{})
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:231
+	From worker startup:	  [9] process_opts(opts::Base.JLOptions)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:1351
+	From worker startup:	 [10] #invokelatest#2
+	From worker startup:	    @ ./essentials.jl:1055 [inlined]
+	From worker startup:	 [11] invokelatest
+	From worker startup:	    @ ./essentials.jl:1052 [inlined]
+	From worker startup:	 [12] exec_options(opts::Base.JLOptions)
+	From worker startup:	    @ Base ./client.jl:273
+	From worker startup:	 [13] _start()
+	From worker startup:	    @ Base ./client.jl:531
+	From worker startup:	ERROR: IOError: bind: operation not permitted (EPERM)
+	From worker startup:	Stacktrace:
+	From worker startup:	  [1] bind(sock::Sockets.TCPServer, host::Sockets.IPv4, port::UInt16; ipv6only::Bool, reuseaddr::Bool, kws::@Kwargs{})
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:271
+	From worker startup:	  [2] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:254 [inlined]
+	From worker startup:	  [3] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:284 [inlined]
+	From worker startup:	  [4] listenany(host::Sockets.IPv4, default_port::UInt16; backlog::Int64)
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:726
+	From worker startup:	  [5] listenany
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:722 [inlined]
+	From worker startup:	  [6] start_worker(out::Base.PipeEndpoint, cookie::String; close_stdin::Bool, stderr_to_stdout::Bool)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:245
+	From worker startup:	  [7] start_worker(out::Base.PipeEndpoint, cookie::String)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:232
+	From worker startup:	  [8] start_worker(cookie::String; kwargs::@Kwargs{})
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:231
+	From worker startup:	  [9] process_opts(opts::Base.JLOptions)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:1351
+	From worker startup:	 [10] #invokelatest#2
+	From worker startup:	    @ ./essentials.jl:1055 [inlined]
+	From worker startup:	 [11] invokelatest
+	From worker startup:	    @ ./essentials.jl:1052 [inlined]
+	From worker startup:	 [12] exec_options(opts::Base.JLOptions)
+	From worker startup:	    @ Base ./client.jl:273
+	From worker startup:	 [13] _start()
+	From worker startup:	    @ Base ./client.jl:531
+	From worker startup:	ERROR: IOError: bind: operation not permitted (EPERM)
+	From worker startup:	Stacktrace:
+	From worker startup:	  [1] bind(sock::Sockets.TCPServer, host::Sockets.IPv4, port::UInt16; ipv6only::Bool, reuseaddr::Bool, kws::@Kwargs{})
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:271
+	From worker startup:	  [2] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:254 [inlined]
+	From worker startup:	  [3] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:284 [inlined]
+	From worker startup:	  [4] listenany(host::Sockets.IPv4, default_port::UInt16; backlog::Int64)
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:726
+	From worker startup:	  [5] listenany
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:722 [inlined]
+	From worker startup:	  [6] start_worker(out::Base.PipeEndpoint, cookie::String; close_stdin::Bool, stderr_to_stdout::Bool)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:245
+	From worker startup:	  [7] start_worker(out::Base.PipeEndpoint, cookie::String)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:232
+	From worker startup:	  [8] start_worker(cookie::String; kwargs::@Kwargs{})
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:231
+	From worker startup:	  [9] process_opts(opts::Base.JLOptions)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:1351
+	From worker startup:	 [10] #invokelatest#2
+	From worker startup:	    @ ./essentials.jl:1055 [inlined]
+	From worker startup:	 [11] invokelatest
+	From worker startup:	    @ ./essentials.jl:1052 [inlined]
+	From worker startup:	 [12] exec_options(opts::Base.JLOptions)
+	From worker startup:	    @ Base ./client.jl:273
+	From worker startup:	 [13] _start()
+	From worker startup:	    @ Base ./client.jl:531
+	From worker startup:	ERROR: IOError: bind: operation not permitted (EPERM)
+	From worker startup:	Stacktrace:
+	From worker startup:	  [1] bind(sock::Sockets.TCPServer, host::Sockets.IPv4, port::UInt16; ipv6only::Bool, reuseaddr::Bool, kws::@Kwargs{})
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:271
+	From worker startup:	  [2] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:254 [inlined]
+	From worker startup:	  [3] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:284 [inlined]
+	From worker startup:	  [4] listenany(host::Sockets.IPv4, default_port::UInt16; backlog::Int64)
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:726
+	From worker startup:	  [5] listenany
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:722 [inlined]
+	From worker startup:	  [6] start_worker(out::Base.PipeEndpoint, cookie::String; close_stdin::Bool, stderr_to_stdout::Bool)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:245
+	From worker startup:	  [7] start_worker(out::Base.PipeEndpoint, cookie::String)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:232
+	From worker startup:	  [8] start_worker(cookie::String; kwargs::@Kwargs{})
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:231
+	From worker startup:	  [9] process_opts(opts::Base.JLOptions)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:1351
+	From worker startup:	 [10] #invokelatest#2
+	From worker startup:	    @ ./essentials.jl:1055 [inlined]
+	From worker startup:	 [11] invokelatest
+	From worker startup:	    @ ./essentials.jl:1052 [inlined]
+	From worker startup:	 [12] exec_options(opts::Base.JLOptions)
+	From worker startup:	    @ Base ./client.jl:273
+	From worker startup:	 [13] _start()
+	From worker startup:	    @ Base ./client.jl:531
+	From worker startup:	ERROR: IOError: bind: operation not permitted (EPERM)
+	From worker startup:	Stacktrace:
+	From worker startup:	  [1] bind(sock::Sockets.TCPServer, host::Sockets.IPv4, port::UInt16; ipv6only::Bool, reuseaddr::Bool, kws::@Kwargs{})
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:271
+	From worker startup:	  [2] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:254 [inlined]
+	From worker startup:	  [3] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:284 [inlined]
+	From worker startup:	  [4] listenany(host::Sockets.IPv4, default_port::UInt16; backlog::Int64)
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:726
+	From worker startup:	  [5] listenany
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:722 [inlined]
+	From worker startup:	  [6] start_worker(out::Base.PipeEndpoint, cookie::String; close_stdin::Bool, stderr_to_stdout::Bool)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:245
+	From worker startup:	  [7] start_worker(out::Base.PipeEndpoint, cookie::String)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:232
+	From worker startup:	  [8] start_worker(cookie::String; kwargs::@Kwargs{})
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:231
+	From worker startup:	  [9] process_opts(opts::Base.JLOptions)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:1351
+	From worker startup:	 [10] #invokelatest#2
+	From worker startup:	    @ ./essentials.jl:1055 [inlined]
+	From worker startup:	 [11] invokelatest
+	From worker startup:	    @ ./essentials.jl:1052 [inlined]
+	From worker startup:	 [12] exec_options(opts::Base.JLOptions)
+	From worker startup:	    @ Base ./client.jl:273
+	From worker startup:	 [13] _start()
+	From worker startup:	    @ Base ./client.jl:531
+	From worker startup:	ERROR: IOError: bind: operation not permitted (EPERM)
+	From worker startup:	Stacktrace:
+	From worker startup:	  [1] bind(sock::Sockets.TCPServer, host::Sockets.IPv4, port::UInt16; ipv6only::Bool, reuseaddr::Bool, kws::@Kwargs{})
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:271
+	From worker startup:	  [2] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:254 [inlined]
+	From worker startup:	  [3] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:284 [inlined]
+	From worker startup:	  [4] listenany(host::Sockets.IPv4, default_port::UInt16; backlog::Int64)
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:726
+	From worker startup:	  [5] listenany
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:722 [inlined]
+	From worker startup:	  [6] start_worker(out::Base.PipeEndpoint, cookie::String; close_stdin::Bool, stderr_to_stdout::Bool)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:245
+	From worker startup:	  [7] start_worker(out::Base.PipeEndpoint, cookie::String)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:232
+	From worker startup:	  [8] start_worker(cookie::String; kwargs::@Kwargs{})
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:231
+	From worker startup:	  [9] process_opts(opts::Base.JLOptions)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:1351
+	From worker startup:	 [10] #invokelatest#2
+	From worker startup:	    @ ./essentials.jl:1055 [inlined]
+	From worker startup:	 [11] invokelatest
+	From worker startup:	    @ ./essentials.jl:1052 [inlined]
+	From worker startup:	 [12] exec_options(opts::Base.JLOptions)
+	From worker startup:	    @ Base ./client.jl:273
+	From worker startup:	 [13] _start()
+	From worker startup:	    @ Base ./client.jl:531
+	From worker startup:	ERROR: IOError: bind: operation not permitted (EPERM)
+	From worker startup:	Stacktrace:
+	From worker startup:	  [1] bind(sock::Sockets.TCPServer, host::Sockets.IPv4, port::UInt16; ipv6only::Bool, reuseaddr::Bool, kws::@Kwargs{})
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:271
+	From worker startup:	  [2] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:254 [inlined]
+	From worker startup:	  [3] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:284 [inlined]
+	From worker startup:	  [4] listenany(host::Sockets.IPv4, default_port::UInt16; backlog::Int64)
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:726
+	From worker startup:	  [5] listenany
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:722 [inlined]
+	From worker startup:	  [6] start_worker(out::Base.PipeEndpoint, cookie::String; close_stdin::Bool, stderr_to_stdout::Bool)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:245
+	From worker startup:	  [7] start_worker(out::Base.PipeEndpoint, cookie::String)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:232
+	From worker startup:	  [8] start_worker(cookie::String; kwargs::@Kwargs{})
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:231
+	From worker startup:	  [9] process_opts(opts::Base.JLOptions)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:1351
+	From worker startup:	 [10] #invokelatest#2
+	From worker startup:	    @ ./essentials.jl:1055 [inlined]
+	From worker startup:	 [11] invokelatest
+	From worker startup:	    @ ./essentials.jl:1052 [inlined]
+	From worker startup:	 [12] exec_options(opts::Base.JLOptions)
+	From worker startup:	    @ Base ./client.jl:273
+	From worker startup:	 [13] _start()
+	From worker startup:	    @ Base ./client.jl:531
+	From worker startup:	ERROR: IOError: bind: operation not permitted (EPERM)
+	From worker startup:	Stacktrace:
+	From worker startup:	  [1] bind(sock::Sockets.TCPServer, host::Sockets.IPv4, port::UInt16; ipv6only::Bool, reuseaddr::Bool, kws::@Kwargs{})
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:271
+	From worker startup:	  [2] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:254 [inlined]
+	From worker startup:	  [3] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:284 [inlined]
+	From worker startup:	  [4] listenany(host::Sockets.IPv4, default_port::UInt16; backlog::Int64)
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:726
+	From worker startup:	  [5] listenany
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:722 [inlined]
+	From worker startup:	  [6] start_worker(out::Base.PipeEndpoint, cookie::String; close_stdin::Bool, stderr_to_stdout::Bool)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:245
+	From worker startup:	  [7] start_worker(out::Base.PipeEndpoint, cookie::String)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:232
+	From worker startup:	  [8] start_worker(cookie::String; kwargs::@Kwargs{})
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:231
+	From worker startup:	  [9] process_opts(opts::Base.JLOptions)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:1351
+	From worker startup:	 [10] #invokelatest#2
+	From worker startup:	    @ ./essentials.jl:1055 [inlined]
+	From worker startup:	 [11] invokelatest
+	From worker startup:	    @ ./essentials.jl:1052 [inlined]
+	From worker startup:	 [12] exec_options(opts::Base.JLOptions)
+	From worker startup:	    @ Base ./client.jl:273
+	From worker startup:	 [13] _start()
+	From worker startup:	    @ Base ./client.jl:531
+	From worker startup:	ERROR: IOError: bind: operation not permitted (EPERM)
+	From worker startup:	Stacktrace:
+	From worker startup:	  [1] bind(sock::Sockets.TCPServer, host::Sockets.IPv4, port::UInt16; ipv6only::Bool, reuseaddr::Bool, kws::@Kwargs{})
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:271
+	From worker startup:	  [2] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:254 [inlined]
+	From worker startup:	  [3] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:284 [inlined]
+	From worker startup:	  [4] listenany(host::Sockets.IPv4, default_port::UInt16; backlog::Int64)
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:726
+	From worker startup:	  [5] listenany
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:722 [inlined]
+	From worker startup:	  [6] start_worker(out::Base.PipeEndpoint, cookie::String; close_stdin::Bool, stderr_to_stdout::Bool)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:245
+	From worker startup:	  [7] start_worker(out::Base.PipeEndpoint, cookie::String)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:232
+	From worker startup:	  [8] start_worker(cookie::String; kwargs::@Kwargs{})
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:231
+	From worker startup:	  [9] process_opts(opts::Base.JLOptions)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:1351
+	From worker startup:	 [10] #invokelatest#2
+	From worker startup:	    @ ./essentials.jl:1055 [inlined]
+	From worker startup:	 [11] invokelatest
+	From worker startup:	    @ ./essentials.jl:1052 [inlined]
+	From worker startup:	 [12] exec_options(opts::Base.JLOptions)
+	From worker startup:	    @ Base ./client.jl:273
+	From worker startup:	 [13] _start()
+	From worker startup:	    @ Base ./client.jl:531
+	From worker startup:	ERROR: IOError: bind: operation not permitted (EPERM)
+	From worker startup:	Stacktrace:
+	From worker startup:	  [1] bind(sock::Sockets.TCPServer, host::Sockets.IPv4, port::UInt16; ipv6only::Bool, reuseaddr::Bool, kws::@Kwargs{})
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:271
+	From worker startup:	  [2] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:254 [inlined]
+	From worker startup:	  [3] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:284 [inlined]
+	From worker startup:	  [4] listenany(host::Sockets.IPv4, default_port::UInt16; backlog::Int64)
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:726
+	From worker startup:	  [5] listenany
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:722 [inlined]
+	From worker startup:	  [6] start_worker(out::Base.PipeEndpoint, cookie::String; close_stdin::Bool, stderr_to_stdout::Bool)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:245
+	From worker startup:	  [7] start_worker(out::Base.PipeEndpoint, cookie::String)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:232
+	From worker startup:	  [8] start_worker(cookie::String; kwargs::@Kwargs{})
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:231
+	From worker startup:	  [9] process_opts(opts::Base.JLOptions)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:1351
+	From worker startup:	 [10] #invokelatest#2
+	From worker startup:	    @ ./essentials.jl:1055 [inlined]
+	From worker startup:	 [11] invokelatest
+	From worker startup:	    @ ./essentials.jl:1052 [inlined]
+	From worker startup:	 [12] exec_options(opts::Base.JLOptions)
+	From worker startup:	    @ Base ./client.jl:273
+	From worker startup:	 [13] _start()
+	From worker startup:	    @ Base ./client.jl:531
+	From worker startup:	ERROR: IOError: bind: operation not permitted (EPERM)
+	From worker startup:	Stacktrace:
+	From worker startup:	  [1] bind(sock::Sockets.TCPServer, host::Sockets.IPv4, port::UInt16; ipv6only::Bool, reuseaddr::Bool, kws::@Kwargs{})
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:271
+	From worker startup:	  [2] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:254 [inlined]
+	From worker startup:	  [3] bind
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:284 [inlined]
+	From worker startup:	  [4] listenany(host::Sockets.IPv4, default_port::UInt16; backlog::Int64)
+	From worker startup:	    @ Sockets /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:726
+	From worker startup:	  [5] listenany
+	From worker startup:	    @ /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Sockets/src/Sockets.jl:722 [inlined]
+	From worker startup:	  [6] start_worker(out::Base.PipeEndpoint, cookie::String; close_stdin::Bool, stderr_to_stdout::Bool)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:245
+	From worker startup:	  [7] start_worker(out::Base.PipeEndpoint, cookie::String)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:232
+	From worker startup:	  [8] start_worker(cookie::String; kwargs::@Kwargs{})
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:231
+	From worker startup:	  [9] process_opts(opts::Base.JLOptions)
+	From worker startup:	    @ Distributed /Applications/Julia-1.11.app/Contents/Resources/julia/share/julia/stdlib/v1.11/Distributed/src/cluster.jl:1351
+	From worker startup:	 [10] #invokelatest#2
+	From worker startup:	    @ ./essentials.jl:1055 [inlined]
+	From worker startup:	 [11] invokelatest
+	From worker startup:	    @ ./essentials.jl:1052 [inlined]
+	From worker startup:	 [12] exec_options(opts::Base.JLOptions)
+	From worker startup:	    @ Base ./client.jl:273
+	From worker startup:	 [13] _start()
+	From worker startup:	    @ Base ./client.jl:531

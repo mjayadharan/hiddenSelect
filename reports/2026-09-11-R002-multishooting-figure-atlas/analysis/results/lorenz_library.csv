@@ -1,0 +1,31 @@
+index,monomial,equation,p_true
+1,1,dx/dt,0.0
+2,z,dx/dt,0.0
+3,z^2,dx/dt,0.0
+4,y,dx/dt,10.0
+5,y * z,dx/dt,0.0
+6,y^2,dx/dt,0.0
+7,x,dx/dt,-10.0
+8,x * z,dx/dt,0.0
+9,x * y,dx/dt,0.0
+10,x^2,dx/dt,0.0
+11,1,dy/dt,0.0
+12,z,dy/dt,0.0
+13,z^2,dy/dt,0.0
+14,y,dy/dt,-1.0
+15,y * z,dy/dt,0.0
+16,y^2,dy/dt,0.0
+17,x,dy/dt,28.0
+18,x * z,dy/dt,-1.0
+19,x * y,dy/dt,0.0
+20,x^2,dy/dt,0.0
+21,1,dz/dt,0.0
+22,z,dz/dt,-2.6666666666666665
+23,z^2,dz/dt,0.0
+24,y,dz/dt,0.0
+25,y * z,dz/dt,0.0
+26,y^2,dz/dt,0.0
+27,x,dz/dt,0.0
+28,x * z,dz/dt,0.0
+29,x * y,dz/dt,1.0
+30,x^2,dz/dt,0.0
