@@ -1,0 +1,58 @@
+{
+ "G1_deps_frozen_matches_manifest": {
+  "pass": true,
+  "detail": "fhn_model_selection_mod 2.jl:ok; fhn_model_selection_mod 5.jl:ok; fhn_model_selection_mod 6 stability analysis and visualization.jl:ok; fhn_model_selection_mod 7.jl:ok; fhn_model_selection_mod 8.jl:ok; helper_functions.jl:ok; integrator.jl:ok; plotting_window_size.jl:ok"
+ },
+ "G2_odefun_poly_equals_odefun": {
+  "pass": true,
+  "detail": "max|odefun - odefun_poly!| over 200 random states = 7.105e-15 (tol 1e-12)"
+ },
+ "G3_F1_bug_present_odefun_new_is_linear_truncation": {
+  "pass": true,
+  "detail": "odefun_new=[1.6, 0.15039999999999998] == linear_truncation, != true RHS [0.4750000000000001, 0.15039999999999998]"
+ },
+ "G4_F1_bug_present_jacobian_j11_sign_flipped": {
+  "pass": true,
+  "detail": "J11 odefun_new=1.0 (>0) vs true=-1.25 (<0); off-diagonals agree: True"
+ },
+ "G5_F2_bug_present_stiff_drops_w_residual": {
+  "pass": true,
+  "detail": "missing fraction per window_size: k=1:11.5%, k=10:17.0%, k=25:11.2%, k=100:11.9%"
+ },
+ "G6_repaired_stiff_matches_explicit": {
+  "pass": true,
+  "detail": "max |repaired - explicit| = 3.043e-10 (tol 1e-8) \u2014 the two integrators agree once the dropped continuation is restored"
+ },
+ "G7_F3_bug_present_mod8_runtime_errors": {
+  "pass": true,
+  "detail": "fhn_u0 -> UndefVarError; forward_simulation_loss -> BoundsError; reads global `data` -> True"
+ },
+ "G8_section5_table_reproduces": {
+  "pass": true,
+  "detail": "all 14 cells match the printed values to 5e-5"
+ },
+ "G9_control_arm_is_plateau_not_a_fit": {
+  "pass": true,
+  "detail": "4 rows with k>=10: J == 1000.0 and p_err == seed (1.5679) \u2014 the reported minimiser is the seed"
+ },
+ "G10_propagation_better_cellwise": {
+  "pass": true,
+  "detail": "strictly better at k=[2, 5, 10, 25, 50, 100]; tied at k=[1] (k=1 is the same problem from the same seed, so a tie there is required)"
+ },
+ "G11_p_err_non_monotone_in_window_size": {
+  "pass": true,
+  "detail": "min ||p-p*|| = 0.1563 at k=5, rising to 0.2835 at k=100 while J falls to 0.00960"
+ },
+ "G12_cost_discriminates": {
+  "pass": true,
+  "detail": "J(p*) in [0.0050, 0.0066]; J(random p) over 8 draws in [0.0721, 1000.0]"
+ },
+ "G13_forwarddiff_through_windowed_loss": {
+  "pass": true,
+  "detail": "||grad J|| at p*, k=5 = 0.17344, all finite"
+ },
+ "G14_completeness_hashes": {
+  "pass": true,
+  "detail": "7 files: data_summary.json, loss_sanity.csv, rhs_and_bugs.json, stiff_branch.csv, stiff_branch_meta.json, sweep.csv, sweep_meta.json"
+ }
+}

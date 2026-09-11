@@ -1,0 +1,97 @@
+% ---------------------------------------------------------------------------
+% Report skeleton. Copy to <report>/report.tex and fill in.
+% Compile from the report folder:
+%   pdflatex -interaction=nonstopmode -halt-on-error report.tex   (TWICE)
+% Figures come from figures/make_figures.py, tables from analysis/make_tables.py.
+% The section order below is the convention: DEFINITIONS BEFORE RESULTS.
+% ---------------------------------------------------------------------------
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black]{hyperref}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf}
+
+% Macro names must be DIGIT-FREE (\arm1 is not a legal control sequence).
+% \newcommand{\armA}{\textsf{baseline}}
+
+\title{\textbf{R### --- [title]}\\
+\large [subtitle: what varies, on what systems, under what protocol]\\
+(\texttt{[YYYY-MM-DD]-R###-[topic]})}
+\author{}
+\date{[YYYY-MM-DD]}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}\noindent
+[What question, what was held fixed, what varied, and the headline numbers.
+State the gate status (e.g. "all gated, G1--G8 PASS") and, if a gate fails,
+say so here rather than burying it. If this is a revision, say what changed
+and which earlier conclusion it corrects.]
+\end{abstract}
+
+\tableofcontents
+
+\section{What this report does, and what it does not}
+% Scope, the question, and an explicit NOT-IN-SCOPE list.
+% If any inherited comparison is not like-for-like with an earlier report
+% (different arm, different anchor, different budget), say so HERE, loudly.
+
+\section{Definitions --- everything used in this report}
+\label{sec:defs}
+% HARD REQUIREMENT. Every symbol, arm, metric, rule and constant used
+% anywhere below is defined here, INCLUDING everything inherited from earlier
+% work. A reader must never need another document.
+
+\subsection{Systems, data and library}
+% Equations, initial conditions, sample counts, noise model, derivative
+% estimator, feature library, scaling. Say which units each stage works in.
+
+\subsection{Methods / arms}
+% One row per arm ACTUALLY USED, defined in full — not by citation.
+% Composite names get each slot explained and each option enumerated.
+\begin{center}\small
+\begin{tabular}{llll}
+\toprule
+arm & [factor 1] & [factor 2] & [inner solve] \\ \midrule
+\textbf{A} & & & \\
+\textbf{B} & & & \\
+\bottomrule
+\end{tabular}
+\end{center}
+% If arms differ in MORE THAN ONE factor at once, either complete the
+% factorial with diagnostic arms or state that no causal attribution is made.
+
+\subsection{Protocol constants}
+% Symbol -> meaning -> value -> where frozen. Separate look-alikes explicitly
+% (a METHOD's cap vs a METRIC's budget; a stopping tolerance vs a threshold).
+% Flag every NON-UNIFORM configuration across arms or systems and say how it
+% changes the reading.
+
+\subsection{Metrics}
+% Every metric and flag, including reused ones. Name the primary metric.
+% Say what is undefined (and how it is displayed) rather than plotting a 0.
+
+\section{What was recomputed, and the staleness position}
+% Table: input | FRESH or REUSED | evidence (which gate, how many rows).
+% Distinguish whole-file BYTE equality from KEYED value equality.
+% Note the SHA-256 ledger written by the verify script.
+
+\section{Results}
+% One subsection per axis. Every claim carries its uncertainty; paired
+% differences carry paired bootstrap CIs with the resampling unit named.
+
+\section{Gates}
+% One row per gate: id, PASS/FAIL, what it asserts. Failures stay failures.
+
+\section{Limitations}
+\label{sec:lim}
+
+\section{Recommendation}
+\label{sec:reco}
+
+\end{document}

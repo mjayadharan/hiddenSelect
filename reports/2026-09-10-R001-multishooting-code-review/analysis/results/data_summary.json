@@ -1,0 +1,14 @@
+{
+  "Delta_t": 1.0,
+  "S": 10,
+  "data_seed": 1287436679,
+  "delta_t": 0.1,
+  "frozen_mod7_sha256": "443b209fa28e113330f4221cd36a0372a6c2d07ab6c71748ad87b5586f73760a",
+  "gamma2": 0.05,
+  "grad_all_finite": true,
+  "grad_norm_at_ptrue_ws5": 0.1734361141155118,
+  "n_data_points": 101,
+  "noise_sigma_rel": 0.05,
+  "v_range": [-2.1098216015901685, 1.9617290694410623],
+  "w_range": [-0.27797716778965625, 1.398063815946971]
+}

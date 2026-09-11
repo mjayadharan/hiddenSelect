@@ -1,0 +1,15 @@
+{
+  "A_monomial_order_mod8": ["1", "x_2", "x_2^2", "x_2^3", "x_1", "x_1 * x_2", "x_1 * x_2^2", "x_1^2", "x_1^2 * x_2", "x_1^3"],
+  "A_odefun_poly_maxabsdiff": 7.105427357601002e-15,
+  "B_jac_odefun_new": [1.0, -1.0, 0.08, -0.064],
+  "B_jac_true": [-1.25, -1.0, 0.08, -0.064],
+  "B_linear_truncation": [1.6, 0.15039999999999998],
+  "B_odefun_new": [1.6, 0.15039999999999998],
+  "B_odefun_true": [0.4750000000000001, 0.15039999999999998],
+  "B_u": [1.5, 0.4],
+  "C_mod8_fhn_u0_error": "UndefVarError",
+  "D2_mod8_fsl_reads_global_data": true,
+  "D_mod8_fsl_error": "BoundsError",
+  "frozen_mod6_sha256": "a8785cf4814f649c84e943d0ea84d03cfc990136606102c12a36695a9d7a1577",
+  "frozen_mod8_sha256": "38ed9a81308d11903ff9a4e79f0b228b6f7a6a5c8fa328a93c2a45ef6068c22b"
+}

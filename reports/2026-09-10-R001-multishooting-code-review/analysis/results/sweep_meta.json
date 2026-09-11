@@ -1,0 +1,8 @@
+{
+  "blowup_penalty": 1000.0,
+  "iterations": 2500,
+  "opt_seed": 1,
+  "optimiser": "NelderMead",
+  "seed_p_err": 1.5679084473666687,
+  "window_sizes": [1, 2, 5, 10, 25, 50, 100]
+}

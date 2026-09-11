@@ -1,0 +1,594 @@
+\documentclass[10pt]{article}
+\usepackage{amsmath, amssymb, amsfonts}
+\usepackage[margin=0.7in]{geometry}
+\usepackage{titlesec}
+\titlespacing*{\section}{0pt}{6pt}{3pt}
+\titlespacing*{\paragraph}{0pt}{4pt}{1em}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xcolor}
+\usepackage[colorlinks=true, linkcolor=blue!50!black, urlcolor=blue!50!black]{hyperref}
+\usepackage{enumitem}
+\setlist{nosep, leftmargin=1.4em}
+
+% \code: typewriter, and allow a line break after every underscore so long
+% identifiers (gate names, Julia function names) cannot spill past the margin.
+\newcommand{\code}[1]{{\small\ttfamily\def\_{\char`\_\allowbreak}#1}}
+\newcommand{\readthis}{\textbf{Read this:}\ }
+
+\title{R001 --- Code Review: \code{hiddenSelect}\\
+Multiple Shooting with Guess Propagation for Sparse Model Selection}
+\author{Review prepared for Manu Jayadharan}
+\date{10 September 2026}
+\setlength{\parskip}{1pt}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+Review of the Julia repository \code{hiddenSelect} --- multiple shooting with guess
+propagation for discovering governing equations from noisy trajectory data --- and of
+the accompanying theory manuscript \code{Multishooting\_and\_sparse\_optimization}
+(\code{main.tex}). Covers what the theory claims, what the code computes, a headless
+re-execution of the numerical pipeline, and a ranked list of verified defects.
+The central algorithmic claim reproduces: sweeping the shooting-window size upward
+while carrying the previous optimum forward as the next initial guess drives the
+parameter error from $\|p_0-p^\star\|=1.568$ at the seed to $0.156$, whereas the same
+optimiser started from that seed at single-shooting granularity diverges and returns
+the blow-up penalty. Seven findings are reported; two silently corrupt published
+numbers --- a dropped Julia line-continuation in the stiff/\code{DiffEq} loss branch
+that discards the entire $w$-residual (11--17\% of the loss at the optimum), and the
+same defect in the Jacobian behind the stability/eigenvalue figures, which reduces a
+cubic vector field to its linear truncation and flips the sign of $\partial \dot v/\partial v$.
+Every quantitative claim below is gated: \textbf{14 of 14 gates pass}
+(\code{analysis/results/gates\_summary.json}), including a cellwise check of the
+section~\ref{sec:results} table and bug-presence gates for F1--F3 that are designed to
+\emph{flip to failing} once those defects are fixed.
+\end{abstract}
+
+\section{Scope, provenance and what was executed}
+
+\paragraph{Artefacts reviewed.} The \code{hiddenSelect} repository
+(\code{\textasciitilde/git\_repos/hiddenSelect}) at commit \code{8648cde} on branch
+\code{main}, whose working tree carried one whitespace-only modification to
+\code{fhn\_model\_selection\_mod 8.jl}; and the theory archive
+\code{Multishooting\_and\_sparse\_optimization.zip} (\code{main.tex}, 656 lines;
+Jayadharan, Hastewell and Mangan, 2025).
+
+\paragraph{What was executed.} Julia~1.11.3, with the committed
+\code{Project.toml} and \code{Manifest.toml}. The non-plotting stack
+(\code{DifferentialEquations}~7.15, \code{Optim}~1.11, \code{ForwardDiff}~0.10.38 and
+\code{DataFrames}~1.7) precompiles and loads cleanly. Every experiment below loads the
+\emph{verbatim source lines} of the repository files via \code{include\_string} on a line
+range, so the functions exercised are the ones on disk. The \code{CairoMakie}/\code{GLMakie}
+stack could not be precompiled here --- it requires rebuilding the \code{REPL} standard
+library, whose precompile-statement generator opens a pseudo-terminal (\code{/dev/ptmx}),
+which this sandbox denies (\code{Failed to open ptm}). That is an environment restriction,
+not a defect in the code; all plotting-free paths were exercised in full.
+
+\paragraph{Self-containment.} This folder regenerates itself. \code{deps/} holds a
+byte-identical, SHA-256-manifested snapshot of the eight Julia sources analysed, taken at
+commit \code{8648cde}; \code{analysis/common.jl} resolves \code{deps/} first and the
+analysis \emph{never reads the live tree}. That matters specifically here: the analysis
+extracts source by \emph{line range}, so an edit to a live file would otherwise shift
+those ranges silently. The dataset is not transcribed either --- it is produced by
+executing frozen \code{mod 7} lines 60--107 verbatim (line 108 begins the plotting block).
+\code{REPRODUCE.md} pins the environment and the ordered commands;
+\code{analysis/verify\_R001.py} writes \code{analysis/results/gates\_summary.json}.
+
+\paragraph{Scope --- a newer commit exists upstream.} This review measures local \code{HEAD}
+$=$ \code{8648cde}. A \code{git fetch} \emph{after} the report was written showed
+\code{origin/main} carrying one further commit the local clone lacked: \code{57e430d},
+``\emph{Made all changes to make the loss function, problem setup and plotting compatible with
+generic N-dimensional ode. Not tested yet.}'', touching \code{mod 7}, \code{mod 8} and
+\code{plotting\_window\_size.jl}. No number here is wrong --- \code{deps/} pins exactly what was
+measured --- but three findings are no longer current upstream: \textbf{F2 is fixed in
+\code{mod 8}} (replaced by a matrix-norm accumulation, so it survives only in \code{mod 5},
+\code{mod 6} and \code{mod 7}) and \textbf{both halves of F3 are fixed}. F1, F4 and F5 still
+stand at \code{origin/main}, and the version-lineage conclusion in \S4 is superseded.
+\code{REPORT\_ID.md} carries the finding-by-finding comparison. Re-reviewing \code{57e430d} is
+R002's job, not a rewrite of R001.
+
+\section{Definitions (read before the results)}
+\label{sec:defs}
+
+Everything the later sections use is defined here, including terms inherited
+from \code{main.tex} and from earlier script versions.
+
+\subsection*{Model, data and estimation problem}
+
+The target system is FitzHugh--Nagumo (FHN), written as a general two-dimensional cubic
+polynomial vector field so that model \emph{selection}, not merely parameter fitting, is the task:
+\begin{equation}
+\frac{d\mathbf{x}}{dt} = \mathbf{F}(\mathbf{x};\mathbf{p}),
+\qquad
+\frac{dx_i}{dt} = \sum_{j=1}^{J} p_{ij}\,\Theta_j(\mathbf{x}),
+\quad i=1,\dots,n,
+\label{eq:model}
+\end{equation}
+with $\mathbf{x}=(v,w)^\top$, $n=2$, library $\Theta = \{1, v, w, v^2, vw, w^2, v^3, v^2w, vw^2, w^3\}$
+($J=10$), and data $y_i = x(t_i) + \eta_i$, $\eta_i\sim\mathcal N(0,\sigma^2)$.
+
+\subsection*{Methods / arms}
+
+{\footnotesize\begin{longtable}{@{}p{0.17\textwidth}p{0.775\textwidth}@{}}
+\toprule
+\textbf{Name} & \textbf{Full definition (not a citation)}\\
+\midrule
+\emph{Single shooting} (SS)
+& One trajectory integrated from a single initial condition $x_0\approx y_0$ across the whole record; cost is the summed squared residual at every data time. Equivalent to window size $N-1$ (one window). Code: \code{forward\_simulation\_loss}, or \code{forward\_simulation\_loss\_windows} with \code{window\_size\_}$=N-1$.\\
+\addlinespace
+\emph{Multiple shooting} (MS)
+& $[t_0,t_N]$ is partitioned into $K$ windows $[\tau_{k-1},\tau_k]$; each is integrated \emph{from the datum at its left endpoint} $y_{\tau_{k-1}}$, not from a free decision variable. Function: \code{forward\_simulation\_loss\_windows}. \readthis{}continuity across nodes is \textbf{not} enforced by constraint or penalty --- unlike textbook multiple shooting the node states are \emph{not} optimisation variables, as \code{main.tex} states.\\
+\addlinespace
+\emph{Guess propagation} (GP)
+& The outer loop. Window size is swept small (many nodes, near-convex) to large (few nodes, many local minima); the minimiser of each easier problem seeds the next. Code: \code{copyto!(x0, Optim.minimizer(optres))} inside \code{for window\_size in window\_size\_range}.\\
+\addlinespace
+\emph{Best-guess propagation}
+& Variant in \code{mod 5}/\code{mod 8}: the guess is updated only on improvement (\code{if Optim.minimum(optres) < best\_min}). Plain GP always overwrites.\\
+\addlinespace
+\emph{No propagation}
+& Control arm: every window size optimised from the \emph{same} fixed seed (\code{copyto!(x0, x0\_)}). This is the arm active in the committed \code{mod 8}.\\
+\addlinespace
+\emph{FS polish}
+& After the sweep, the best parameter vector is handed to a \code{BFGS} single-shooting optimisation (\code{optres2}) --- the ``better initial guess for a full ODE solver'' step of \code{main.tex}.\\
+\addlinespace
+\emph{Data assimilation} (DA)
+& \code{data\_assimilation\_loss}: weak-constraint form in which the \emph{whole discrete trajectory} $X$ is an optimisation variable, data term weighted $\alpha$, model-residual term weighted $\beta$. Present in every version but commented out of every driver --- dead code.\\
+\bottomrule
+\end{longtable}}
+
+\noindent
+\readthis{}two different parametrisations of the same sweep coexist in the
+repository and are easy to confuse.
+\emph{Number of windows} $K$ (used by \code{fhn\_model\_selection\_mod 2.jl},
+\code{Plotting\_num\_windows.jl}, and \code{figs/num\_windows\_plots/}): the
+record is cut into $K$ equal chunks, so large $K$ = easy problem.
+\emph{Window size} $\kappa$ (used by \code{mod 5}--\code{mod 8},
+\code{plotting\_window\_size.jl}, and \code{figs/window\_size\_plots/}): the number
+of \emph{data intervals} spanned by one window, so large $\kappa$ = hard problem.
+The two sweeps therefore run in \emph{opposite} directions; figures from the two
+families are not directly comparable.
+
+\subsection*{Metrics and flags}
+
+{\footnotesize\begin{longtable}{@{}p{0.17\textwidth}p{0.775\textwidth}@{}}
+\toprule
+\textbf{Metric} & \textbf{Definition}\\
+\midrule
+$J_K(p)$ \emph{(primary)}
+& Multiple-shooting cost, Eq.~\eqref{eq:JK}; returned as \code{data\_loss/(2*length(D\_1)) + sparse\_loss/length(p\_)} --- squared residual sum over the total number of scalar observations, plus the mean smooth-$\ell_1$ penalty over the 20 coefficients.\\
+\addlinespace
+$\|p-p^\star\|$
+& Euclidean distance between the fitted 20-vector and the true FHN coefficients. \emph{Not} computed by the repository; added here as the identification-quality metric, since a low $J_K$ with a wrong $p$ is the failure mode of interest.\\
+\addlinespace
+\emph{Blow-up penalty}
+& If any state exceeds $10^3$ or becomes \code{NaN}, the loss returns the flat constant $10^3$ and records the offending $(x,p)$ in \code{unstable\_param}. \readthis{}this is a \emph{plateau}, not a barrier: a value of exactly $1000.0$ below means the optimiser never found a stable trajectory and the reported minimiser is just the seed.\\
+\addlinespace
+\code{unstable\_points}
+& List of $(x_{\text{window start}}, p)$ pairs that triggered the penalty; consumed by the \code{mod 6} stability analysis.\\
+\addlinespace
+\code{smoothl1($x,\alpha$)}
+& $\alpha^{-1}[\log(1+e^{-\alpha x}) + \log(1+e^{\alpha x})]$ for $|\alpha x|\le 40$, else $|x|$: a $C^\infty$ surrogate for $|x|$ with $\alpha=500$. The sparsity-promoting term.\\
+\bottomrule
+\end{longtable}}
+
+\subsection*{Symbols and frozen constants}
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Symbol} & \textbf{Meaning} & \textbf{Value here} & \textbf{Frozen in}\\
+\midrule
+$\delta t$ & integrator step & $\Delta t/S = 0.1$ & driver, \code{S = 10}\\
+$\Delta t$ & data spacing & $1.0$ & \code{downsample = 100} on a $0.01$ grid\\
+$S$ & integrator steps per data interval & $10$ & driver\\
+$\kappa$ & window size (data intervals per window) & swept $1\dots100$ & \code{window\_size\_range}\\
+$K$ & number of windows $=\lceil (N{-}1)/\kappa\rceil$ & derived & ---\\
+$N$ & number of data times & $101$ & crop to $t\in[50,150]$\\
+$\gamma_2$ & sparsity weight, forward-sim losses & $5\times10^{-2}$ & driver\\
+$\gamma_1$ & sparsity weight, DA loss & $5\times10^{-3}$ & driver (dead code)\\
+$\alpha,\beta$ & DA data / model weights & $1.0$, $100.0$ & driver (dead code)\\
+$\alpha_{\ell_1}$ & sharpness of \code{smoothl1} & $500$ & \code{smoothl1} default\\
+$\sigma_{\text{rel}}$ & relative noise level & $0.05$ & \code{noise\_sigma}\\
+$N_p$ & number of library coefficients & $20 = 2\times 10$ & \code{const Np}\\
+$L(p)$ & Lipschitz constant of $f$ in $x$ & theory only & \code{main.tex}\\
+$\tilde L$ & Lipschitz constant of $f$ in $p$ & theory only & \code{main.tex}\\
+$\mu,\lambda_{\min}$ & strong-convexity / Hessian floor & theory only & \code{main.tex}\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+\readthis{}$\sigma_{\text{rel}}=0.05$ is applied \emph{per component relative to
+that component's own standard deviation}. Because $w$ has roughly $40\%$ of the
+amplitude of $v$, the absolute noise on $w$ is about $2.5\times$ smaller, and the
+$w$-residual contributes only $\sim 12\%$ of $J_K(p^\star)$. This matters for
+finding F2 below.
+
+\section{The theory in \code{main.tex}}
+
+The manuscript sets up the inverse problem \eqref{eq:model} and introduces the
+flow map $\varphi_f(t;p,x_0)$ satisfying the semigroup property
+$\varphi_f(t_1+t_2;p,x_0)=\varphi_f(t_2;p,\varphi_f(t_1;p,x_0))$. The
+multiple-shooting cost is
+\begin{equation}
+J_K(p) = \sum_{k=1}^{K}\ \sum_{t_i \in [\tau_{k-1},\tau_k]}
+\big\|\varphi_f(t_i-\tau_{k-1};p,\,y_{\tau_{k-1}}) - y_i\big\|^2 ,
+\label{eq:JK}
+\end{equation}
+reducing for $K=1$ to the single-shooting cost $J_1$. Four results are proved.
+
+\textbf{Lemma 1 (two-sided flow sensitivity).} For Lipschitz $f$,
+$e^{-L(p)t}\|x_1-x_2\| \le \|\varphi_f(t;p,x_1)-\varphi_f(t;p,x_2)\| \le e^{L(p)t}\|x_1-x_2\|$.
+
+\textbf{Convergence of $J_K$ to the noise-free cost.} Splitting each residual into a
+flow-difference term and a noise term gives, with $\Delta T := \max_k(\tau_k-\tau_{k-1})$,
+$J_K(p) \le N\big(e^{L(p)\Delta T}\|\eta\|_{\max} + \|\varphi_f(t_{i+1};p,x_0)-x_{i+1}\| + \|\eta\|_{\max}\big)^2$,
+so $J_K \to J^\star$ as $\eta\to 0$. The single-shooting bound carries
+$e^{L(p)(t_i-t_0)}$ in place of $e^{L(p)\Delta T}$ --- \emph{this is the entire argument for
+multiple shooting}: the exponential amplification of the initial-condition error is capped at
+the window length rather than the record length. Under local strong convexity with modulus $\mu$,
+\begin{equation}
+\|p^\star-p^{(K)}\| \le
+\sqrt{\tfrac{2}{\mu}\Big(N\|\eta\|_{\max}^2\big(1+e^{L(p^\star)\Delta T}\big)^2 - J_K(p^{(K)})\Big)} .
+\end{equation}
+
+\textbf{Lemma 2 (parameter sensitivity of the flow).}
+$\|\varphi_f(t;p_1,x_0)-\varphi_f(t;p_2,x_0)\| \le \frac{\tilde L}{L(p)}(e^{L(p)t}-1)\|p_1-p_2\|$.
+
+\textbf{Proposition 1 and the Theorem (node removal).} For two nested partitions
+--- $\{\tau_k\}$ and the coarser $\{\tau_k\}_{k\notin\mathcal I_R}$ obtained by
+deleting the nodes indexed by $\mathcal I_R$ --- with
+$\Delta T_1=\max_k(\tau_k-\tau_{k-1})$ and $\Delta T_2=\max_k(\tau_k-\tau_k^-)$,
+\begin{equation}
+\|\hat{\mathcal J}_K(p)-J_K(p)\| \le
+2|\mathcal I_R| C_{\max}\Big(e^{L(p)(\Delta T_1+\Delta T_2)}\|\eta\|_{\max}
++ e^{L(p)\Delta T_1}\big[\tfrac{\tilde L}{L(p)}(e^{L(p)\Delta T_2}-1)\|p-p^\star\| + \|\eta\|_{\max}\big]\Big),
+\end{equation}
+and, under local strong convexity, $\|\hat p^{(K)}-p^{(K)}\|$ is bounded by
+$\tfrac{2}{\sqrt\mu}$ times the square root of a comparable expression. The
+practical reading, stated as a Note in the manuscript, is the design rule for
+guess propagation: \emph{remove few nodes at a time, prefer nodes with small
+$\eta_{\tau_k}$, and keep $\Delta T_2$ small}. This is exactly the greedy sweep
+the code performs.
+
+\paragraph{Gaps in the manuscript itself.}
+(i) The flow map is defined with $p\in\mathbb R$ throughout --- the manuscript carries its
+own reminder to make $p$ multidimensional --- yet every application has $p\in\mathbb R^{20}$.
+Relatedly, a cubic vector field is not globally Lipschitz, so $L(p)$ exists only on an
+invariant compact set; that should appear as a hypothesis.
+(ii) The bounds on $J_K$ are one-sided; turning them into a bound on $\|p^\star-p^{(K)}\|$
+needs the Hessian/strong-convexity condition to hold \emph{uniformly along the sweep}. That
+assumption does all the work and is never checked numerically --- the contour and surface
+movies in \code{figs/} are the natural evidence for it and are not yet tied back to the theorem.
+(iii) The sparsity term $\gamma\sum_j \text{smoothl1}(p_j)$ that the code always uses appears
+nowhere in the analysis, so the code's $p^{(K)}$ is biased relative to the theorems'.
+
+\section{What the code actually does}
+
+\paragraph{Numerical core.} \code{integrator.jl} is a clean, allocation-free fixed-step
+Tsitouras 5(4) integrator: typed tableau struct, preallocated \code{Tsit5Cache}, in-place and
+out-of-place step functions, fixed-step \code{integrate} driver. It is generic in
+\code{eltype}, which is why \code{ForwardDiff} differentiates straight through it. The
+strongest code in the repository.
+
+\paragraph{Library and RHS.} \code{helper\_functions.jl} generates all multi-indices of
+total degree $\le$ \code{deg} in \code{dim} variables and maps them to monomial strings;
+\code{mod 8} uses them in \code{odefun\_poly!}, a dimension- and degree-agnostic polynomial
+RHS with a precomputed power table. \emph{Verified:} with the re-ordered coefficient vector it
+reproduces the hard-coded \code{odefun} to $3.6\times10^{-15}$ over 200 random states, so the
+refactor's re-ordering of \code{fhn\_p} is correct. But the monomial order changes from
+$(1,v,w,v^2,vw,w^2,v^3,v^2w,vw^2,w^3)$ to $(1,w,w^2,w^3,v,vw,vw^2,v^2,v^2w,v^3)$, and the
+bar-chart tick labels \code{trmstr} in \code{plotting\_window\_size.jl} still encode the
+\emph{old} order --- every coefficient plot drawn after the refactor lands will be mislabelled
+unless \code{trmstr} is regenerated from \code{multiindex\_mapping}.
+
+\paragraph{Loss and optimisation.} \code{forward\_simulation\_loss\_windows} has two
+branches: the \emph{explicit} one (\code{stiff\_solver\_=false}) marches the in-house Tsit5 with
+$S$ substeps per data interval, resetting the state to the data at every window start
+(\code{if (i-1) \% window\_size\_ == 0}); the \emph{stiff} one builds an \code{ODEProblem} per
+window and calls a \code{DiffEq} solver (\code{Rosenbrock23}, \code{RadauIIA5}, \dots) via
+\code{remake}. The explicit branch is what the driver optimises. Optimisers are
+\code{NelderMead} in the sweep and \code{BFGS} for the polish; \emph{verified} that
+\code{ForwardDiff} differentiates the whole windowed loss (finite $\|\nabla J\|=0.173$ at
+$p^\star$, $\kappa=5$).
+
+\subsection*{Version lineage --- which file is the latest working copy}
+
+\begin{center}\footnotesize
+\begin{tabular}{@{}llp{0.56\textwidth}@{}}
+\toprule
+\textbf{File} & \textbf{Last commit} & \textbf{State}\\
+\midrule
+\code{fhn\_model\_selection.jl} & 2025-01-31 & Original SS + DA prototype.\\
+\code{\dots\_mod.jl}, \code{\dots\_mod 2.jl} & 2025-02-04 & First windowed loss, parametrised by \emph{number of windows}. \code{mod 2} carries an off-by-one: the residual after $S$ substeps is compared against \code{D\_1[i]} rather than \code{D\_1[i+1]}.\\
+\code{\dots\_mod 3/4.jl} & 2025-02-04/12 & Contour-plot machinery added.\\
+\code{\dots\_mod 5.jl} & 2025-02-12 & Switch to \emph{window size}; plain and best-guess propagation; contour/surface movies. Generated \code{figs/window\_size\_plots/}.\\
+\code{\dots\_mod 6 \dots.jl} & 2025-03-31 & Adds \code{unstable\_param} collection and the eigenvalue/stability movies.\\
+\textbf{\code{\dots\_mod 7.jl}} & \textbf{2025-04-04} & \textbf{Last version whose main pipeline runs.} Lines 1--695 are coherent and were exercised end to end in this review. The trailing scratch block (lines $\sim$697--881) does not run: it reassigns \code{const Np}, uses \code{multi\_index\_set}, \code{d}, \code{deg} and \code{fhn\_p\_2} before they are defined, and uses \code{@SVector} before \code{using StaticArrays}.\\
+\code{\dots\_mod 8.jl} & 2025-04-07 & \textbf{Newest, but mid-refactor and broken} --- see F3/F4. Commit message: ``\emph{started adding dimension agnostic code \dots Need to extend the effect of changing odefun to the rest of the code}''. Halts at line 97.\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+\textbf{Answer to ``which is the latest working copy'':} \code{fhn\_model\_selection\_mod 7.jl},
+lines 1--695. \code{mod 8} is the newest file but is an unfinished refactor and
+cannot be run as-is; its new \code{odefun\_poly!} is correct and worth keeping.
+Separately, note that \code{mod 8}'s driver has guess propagation \emph{disabled}
+(\code{copyto!(x0, x0\_)}, ``Resetting the initial guess for each new window
+size'') and a three-point \code{window\_size\_range = [1,50,100]}, so even once it
+runs it reproduces the \emph{control} arm, not the method.
+
+\paragraph{Notebooks.} The three \code{.ipynb} files are exploratory Lotka--Volterra side
+studies, not part of the FHN pipeline. \code{Untitled.ipynb} is Python/SciPy.
+\code{Untitled1.ipynb} and \code{backward\_euler\_scaling\_jl.ipynb} declare a Julia 1.9.3
+kernel; \code{IJulia} is not installed in this depot, so both were re-run as extracted scripts
+under 1.11.3. \code{Untitled1.ipynb} runs to completion;
+\code{backward\_euler\_scaling\_jl.ipynb} \textbf{fails} on \code{Optim} 1.11 at
+\code{Fminbox(SimulatedAnnealing())}:
+\begin{quote}\footnotesize\ttfamily\raggedright
+MethodError: no method matching reset!(::SimulatedAnnealing, ::SimulatedAnnealingState, ::BarrierWrapper, ::Vector\{Float64\})
+\end{quote}
+\noindent Box-constrained simulated annealing is no longer supported; use \code{NelderMead} inside
+\code{Fminbox}, or \code{SAMIN}, or drop the box. \code{Untitled1.ipynb} also illustrates the
+motivating pathology: with true $(\alpha,\beta,\gamma,\delta)=(1,0.5,0.8,0.3)$ the
+single-shooting fit converges to $(\approx 4.0,2.9,7.1,2.9)$ --- a confident fit to the wrong model.
+
+\section{Reproduction results}\label{sec:results}
+
+All runs use the committed data recipe: FHN integrated at $\delta t=0.01$ to
+$T=156$, downsampled by 100, cropped to $t\in[50,150]$ ($N=101$ points,
+$\Delta t=1$), $5\%$ per-component relative Gaussian noise,
+\code{Random.seed!(1287436679)}. Optimiser \code{NelderMead}, 2500 iterations,
+$\gamma_2=5\times10^{-2}$, $S=10$, seed \code{Random.seed!(1)} giving
+$\|p_0-p^\star\|=1.568$.
+
+\begin{center}\small
+\begin{tabular}{@{}rcccc@{}}
+\toprule
+& \multicolumn{2}{c}{\textbf{Guess propagation}} & \multicolumn{2}{c}{\textbf{No propagation (control)}}\\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+$\kappa$ & $J_K$ & $\|p-p^\star\|$ & $J_K$ & $\|p-p^\star\|$\\
+\midrule
+1   & 0.01338 & 1.1347 & 0.01338 & 1.1347\\
+2   & 0.01360 & 0.3967 & 0.01608 & 1.0868\\
+5   & 0.01316 & \textbf{0.1563} & 0.04694 & 1.8765\\
+10  & 0.01055 & 0.1851 & 1000.0 & 1.5679\\
+25  & 0.00991 & 0.2414 & 1000.0 & 1.5679\\
+50  & 0.00977 & 0.2717 & 1000.0 & 1.5679\\
+100 & \textbf{0.00960} & 0.2835 & 1000.0 & 1.5679\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+$\kappa=100$ is single shooting over the whole record. The control arm returns
+the blow-up plateau $1000.0$ for every $\kappa\ge 10$, and its reported
+minimiser is unchanged from the seed ($\|p-p^\star\|=1.5679$), i.e.\ the
+optimiser never found a stable trajectory. With propagation, the same optimiser
+reaches single shooting with $J_K=0.0096$ and $\|p-p^\star\|=0.28$.
+\textbf{This is the paper's claim, and it reproduces cleanly.}
+
+Two further observations. $J_K$ decreases monotonically in $\kappa$ along the propagated arm,
+consistent with the theory: larger windows mean fewer noisy restarts, so the
+$e^{L\Delta T}\|\eta\|$ term is paid at fewer nodes. Less comfortably,
+$\|p-p^\star\|$ is \emph{not} monotone --- it bottoms out at $\kappa=5$ ($0.156$) and then
+\emph{degrades} to $0.28$ by $\kappa=100$ while the cost keeps improving. The last sweep steps
+buy cost at the expense of identification. This is a real result, and exactly what the
+$\|p^\star-p^{(K)}\|$ bounds of \S3 should explain: intermediate $\kappa$ balances the noise
+term against the conditioning term. It argues for reporting $\|p-p^\star\|$ (or, on real data,
+a held-out forecast error) alongside $J_K$ and for choosing the stopping point on it rather
+than running to $\kappa=N-1$ by default. Sanity checks at the true parameters give
+$J_K(p^\star)\in[0.0050,0.0066]$ across $\kappa\in\{1,5,25,100\}$, consistent with the noise
+floor, while random $p$ draws (8 per $\kappa$, gate G12) give
+$J_K\in[0.0721,1000]$ --- every one of them above every $J_K(p^\star)$, so the cost does
+discriminate.
+
+\section{Findings}\small
+
+Ordered by severity. Each was confirmed by execution, not by reading alone.
+
+\paragraph{F1 --- Stability/eigenvalue figures use a linear truncation of the vector field.
+\textnormal{(\code{mod 6}, \code{odefun\_new}, lines 980--993; silent wrong numbers.)}}
+\code{odefun\_new} writes each component as
+\code{F[1] = p[1] + p[2]*y[1] + p[3]*y[2]} followed by continuation lines
+beginning with \code{+ p[4]*y[1]\^{}2 \dots}. In Julia the first line is a
+\emph{complete} statement; the following lines parse as separate, discarded
+expressions. Every quadratic and cubic term is dropped. Verified at
+$u=(1.5,0.4)$, $p=p^\star_{\text{FHN}}$:
+\code{odefun\_new} $=(1.600,\,0.1504)$, correct RHS $=(0.475,\,0.1504)$, linear
+truncation $=(1.600,\,0.1504)$ --- an exact match to the truncation. The
+Jacobian consumed by \code{get\_eigens} is
+$\left(\begin{smallmatrix}1.0 & -1.0\\ 0.08 & -0.064\end{smallmatrix}\right)$
+instead of
+$\left(\begin{smallmatrix}-1.25 & -1.0\\ 0.08 & -0.064\end{smallmatrix}\right)$;
+the $(1,1)$ entry has the \emph{wrong sign}, which for a stability plot is the
+worst possible error. All movies under
+\code{figs/window\_size\_plots/stability/} are affected and should be regenerated.
+\emph{Fix:} end each continued line with a trailing \code{+}, or wrap the RHS in parentheses ---
+better still, delete \code{odefun\_new} and differentiate the existing
+\code{odefun}/\code{odefun\_poly!} through a one-line closure.
+
+\paragraph{F2 --- The stiff/\code{DiffEq} loss branch silently discards the entire
+$w$-residual. \textnormal{(\code{mod 5}:299--302, \code{mod 6}:317--320,
+\code{mod 7}:355--358, \code{mod 8}:409--412; silent wrong objective.)}}
+Same parsing trap: \code{data\_loss += dot(\dots v \dots)} terminates the
+statement, and the following \code{+ dot(\dots w \dots)} is evaluated and thrown
+away. Quantified by running the file's own function against a patched copy with
+the continuation repaired, at $p=p^\star$:
+
+\begin{center}\small
+\begin{tabular}{@{}rccc@{}}
+\toprule
+$\kappa$ & as written & $w$-term restored & fraction of the loss missing\\
+\midrule
+1   & 0.0044519 & 0.0050288 & 11.5\%\\
+10  & 0.0032216 & 0.0038801 & 17.0\%\\
+25  & 0.0057854 & 0.0065134 & 11.2\%\\
+100 & 0.0043642 & 0.0049514 & 11.9\%\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+The repaired stiff branch agrees with the explicit branch to all printed digits
+($0.0050288$, $0.0038801$, $0.0065134$, $0.0049514$), which is a good
+cross-validation of the two integrators once the bug is removed. The missing
+fraction is only $\sim 12\%$ at the optimum because the $w$ noise is small; away
+from the optimum, where the $w$ trajectory can be badly wrong, the omitted term
+is much larger, so the stiff branch optimises an objective that is \emph{blind to
+$w$}. The explicit branch, which accumulates scalar \code{abs2} terms, is
+unaffected --- so the main results are safe, but every contour/surface movie
+produced with \code{stiff\_solver\_=true} (\code{Rosenbrock23}, \code{RadauIIA5},
+adaptive-\code{Tsit5} variants under \code{figs/window\_size\_plots/contour\_plots/}
+and \code{surface\_plots/}) shows the wrong landscape.
+
+\paragraph{F3 --- \code{mod 8} does not run. \textnormal{(Two independent errors.)}}
+(a) Line 97: \code{prob\_fhn = ODEProblem(\dots, fhn\_u0, \dots)} --- the variable is
+named \code{fhn\_y0}; \code{fhn\_u0} was defined only in \code{mod 7}'s scratch
+block and was not carried over. Confirmed: \code{UndefVarError: fhn\_u0}.
+(b) Line 260: \code{d, N = size(data)} where \code{data} is the flattened
+$2N$-vector, so \code{size} returns a 1-tuple. Confirmed:
+\code{BoundsError: attempt to access Tuple\{Int64\} at index [2]}. In the same
+function \code{D\_1}/\code{D\_2} are commented out but still referenced throughout the
+body, so \code{fs\_loss} --- and therefore the final \code{BFGS} polish --- cannot work
+either. (c) Gating this surfaced a third defect not in the first draft: that
+\code{size(data)} reads the \emph{global} \code{data}, silently ignoring the function's
+own \code{data\_} argument (gate G7). The signature is therefore a lie --- passing a
+different dataset has no effect --- and the same shadowing should be checked in
+\code{forward\_simulation\_loss\_windows} when the refactor lands.
+
+\paragraph{F4 --- The window-sweep ``gradient'' differentiates the wrong function.
+\textnormal{(\code{mod 5}:530, \code{mod 7}, \code{mod 8}:573.)}}
+\code{grad\_fs\_loss\_window!(g,x)} calls \code{ForwardDiff.gradient(fs\_loss, x)},
+not \code{fs\_loss\_window}. It is currently harmless only because the sweep uses
+\code{NelderMead}, which ignores the supplied gradient. The moment anyone
+switches the commented-out \code{BFGS} line back on --- which the code invites ---
+the sweep will descend on the single-shooting loss while reporting the windowed
+one. Given that \code{ForwardDiff} through the windowed loss was verified to work
+here, this is a one-word fix with a real payoff in speed over \code{NelderMead}.
+
+\paragraph{F5 --- Stale call signature in \code{animate\_contourplots!}.
+\textnormal{(\code{plotting\_window\_size.jl}:378--382.)}}
+It calls \code{loss\_function\_window\_(x0, p, odefun\_, \dots; silent=true)}, but
+since \code{mod 6} the signature is
+\code{forward\_simulation\_loss\_windows(x0\_, unstable\_param, p\_, \dots; silent\_=\dots)}
+--- the \code{unstable\_param} argument was inserted and the keyword renamed.
+The helper will throw if called; the drivers work around it by inlining a private
+\code{record(\dots)} block instead, which is why this has gone unnoticed.
+
+\paragraph{F6 --- Thread-safety of the outer loop.}
+\code{@threads for i in 1:num\_runs} writes into the shared \code{x0},
+\code{results\_inner} and \code{unstable\_points\_dict}. With
+\code{num\_runs = 1} this is benign, but the multi-seed study the loop is clearly
+built for will race: \code{Dict} is not thread-safe, and guess propagation
+through a shared \code{x0} is not even well-defined across threads. Make
+\code{x0}, \code{results\_inner} and \code{unstable\_points\_dict} thread-local and
+reduce afterwards.
+
+\paragraph{F7 --- Smaller items.}
+(i) \code{mod 2}'s \code{forward\_simulation\_loss\_window} compares the state
+after $S$ substeps to \code{D\_1[i]} instead of \code{D\_1[i+1]} --- a one-interval
+misalignment, fixed by \code{mod 5}, but it means the earliest
+\code{figs/num\_windows\_plots/} figures were produced with a shifted residual.
+(ii) \code{partition\_view} with \code{chunk\_size = div(length(arr), num\_windows)}
+emits an extra short trailing window when the length is not divisible, so the
+effective $K$ silently exceeds \code{num\_windows}.
+(iii) \code{forward\_simulation\_loss\_windows} keyword defaults are written
+\code{abs\_tol\_=abstol=1e-8}, which assigns a global named \code{abstol} as a side
+effect of evaluating the default; harmless but accidental.
+(iv) The blow-up penalty is a flat $10^3$ with no gradient, so the optimiser gets
+no direction out of the unstable region; a penalty that grows with
+$\|x\|$ or with the index at which the blow-up occurred would guide it back.
+(v) \code{plotSolution!} references the global \code{optres} inside its
+\code{DA=true} branch, and \code{ax31} inside its \code{FS} branch even when
+\code{GFreeFS=false}; both will throw if those branches are ever used.
+(vi) \code{Statistics} and \code{Random} are used but absent from \code{Project.toml}.
+
+
+\normalsize
+\section{Gates}
+\label{sec:gates}
+
+Every quantitative claim in this report is asserted by
+\code{analysis/verify\_R001.py}, which reads only this folder's own
+\code{analysis/results/} and writes \code{gates\_summary.json}. Current status:
+\textbf{14 of 14 pass}.
+
+\medskip
+{\footnotesize
+\begin{longtable}{@{}p{0.30\textwidth}p{0.055\textwidth}p{0.60\textwidth}@{}}
+\toprule
+\textbf{Gate} & \textbf{} & \textbf{What it asserts}\\
+\midrule
+\code{G1\_deps\_frozen\_matches\_manifest} & pass & All 8 frozen sources hash to \code{deps/MANIFEST.md}.\\
+\code{G2\_odefun\_poly\_equals\_odefun} & pass & $\max|\,$\code{odefun}$-$\code{odefun\_poly!}$\,| = 7.1\times10^{-15}$ over 200 random states (tol $10^{-12}$).\\
+\code{G3\_F1\_bug\_present\_...\_linear\_truncation} & pass & \code{odefun\_new} equals the linear truncation and differs from the true RHS.\\
+\code{G4\_F1\_bug\_present\_jacobian\_j11\_sign\_flipped} & pass & $J_{11}=+1.0$ from \code{odefun\_new} vs $-1.25$ true; off-diagonals agree.\\
+\code{G5\_F2\_bug\_present\_stiff\_drops\_w\_residual} & pass & Missing fraction in $[10\%,20\%]$ at every $\kappa$ tested.\\
+\code{G6\_repaired\_stiff\_matches\_explicit} & pass & $\max|\text{repaired}-\text{explicit}| = 3.0\times10^{-10}$ (tol $10^{-8}$).\\
+\code{G7\_F3\_bug\_present\_mod8\_runtime\_errors} & pass & \code{UndefVarError}, \code{BoundsError}, and the global-\code{data} shadowing.\\
+\code{G8\_section5\_table\_reproduces} & pass & All 14 cells of the \S\ref{sec:results} table match the printed values to $5\times10^{-5}$.\\
+\code{G9\_control\_arm\_is\_plateau\_not\_a\_fit} & pass & Every control row with $\kappa\ge10$ has $J_K$ exactly $1000.0$ \emph{and} $\|p-p^\star\|$ equal to the seed.\\
+\code{G10\_propagation\_better\_cellwise} & pass & Strictly better at $\kappa\in\{2,5,10,25,50,100\}$; tied at $\kappa=1$, where a tie is required.\\
+\code{G11\_p\_err\_non\_monotone\_in\_window\_size} & pass & $\|p-p^\star\|$ minimised at an interior $\kappa=5$ and rising to $\kappa=100$ while $J_K$ falls.\\
+\code{G12\_cost\_discriminates} & pass & Every $J_K(p^\star)$ below every random-$p$ draw (8 per $\kappa$).\\
+\code{G13\_forwarddiff\_through\_windowed\_loss} & pass & $\|\nabla J\|=0.17344$, all entries finite.\\
+\code{G14\_completeness\_hashes} & pass & 7 result files present; SHA-256 ledger written.\\
+\bottomrule
+\end{longtable}}
+
+\paragraph{Gate polarity --- read before acting on a failure.} The five gates whose names
+contain \code{bug\_present} assert that a \emph{defect is still there} in the frozen
+\code{deps/} snapshot. They pass \emph{because} F1, F2 and F3 are unfixed. When those are
+repaired in the live tree and \code{deps/} is re-frozen, \textbf{G3, G4, G5 and G7 should
+flip to failing} --- that flip is the evidence the fix landed, not a regression. G6 is the
+complement and must keep passing throughout. Every other gate is an ordinary correctness
+gate whose failure means something broke.
+
+\paragraph{What is \emph{not} gated.} The theory review in \S3 and the version-lineage
+judgements in \S4 are readings, not measurements. The claim that \code{mod 7} lines
+1--695 form the last coherent pipeline is supported by execution of its loss functions and
+data block (G2, G6, G8, G13) but is not itself a gate --- the file's plotting calls were
+never executed here, for the sandbox reason in \S1. F5 (stale signature in
+\code{animate\_contourplots!}) and F6 (thread-safety) are read from the frozen source and
+argued, not asserted: F5 would need the Makie stack, and F6 is a race whose absence a
+single run cannot demonstrate.
+\small
+\normalsize\section{Recommendations}
+
+\begin{enumerate}
+\item \textbf{Fix F1 and F2 first and regenerate the affected figures} --- they are the only
+findings that change numbers already in circulation. The regression test that catches F2 now
+exists: gate \code{G6\_repaired\_stiff\_matches\_explicit} asserts the two branches agree at
+$p^\star$ to $10^{-8}$, and \code{G5\_F2\_bug\_present\_stiff\_drops\_w\_residual} will flip to
+failing the moment you repair the continuation. Re-freeze \code{deps/} after the fix so the
+flip is recorded.
+\item \textbf{Finish the \code{mod 8} refactor from \code{mod 7}}, keeping
+\code{odefun\_poly!} (verified correct) and repairing F3; regenerate
+\code{trmstr} from \code{multiindex\_mapping} so the coefficient bar charts match
+the new monomial order. Re-enable guess propagation in the driver.
+\item \textbf{Collapse the eight \code{mod N} scripts into one module plus thin drivers.}
+They share $\sim 80\%$ of their text; every fix has had to be applied $n$ times, and F2 shows
+it was not. A \code{src/HiddenSelect.jl} plus per-experiment drivers makes the lineage question
+of \S4 disappear.
+\item \textbf{Report $\|p-p^\star\|$, not just $J_K$}, and use it to choose where
+to stop the sweep. The non-monotonicity in \S5 is a result, not an artefact, and
+it connects directly to the $\|p^\star-p^{(K)}\|$ bounds.
+\item \textbf{Switch the sweep to \code{BFGS}} once F4 is fixed: AD through the
+windowed loss already works, and \code{NelderMead} in 22 dimensions is the main
+reason the sweep needs 2500 iterations per step.
+\item \textbf{Close the loop with the theory.} The manuscript's node-removal Note prescribes
+removing few nodes at a time and preferring low-noise nodes; the code removes nodes by a fixed
+stride in $\kappa$ and ignores $\eta$ entirely. An arm implementing the prescribed greedy rule
+would be a direct numerical test of Proposition 1.
+\item \textbf{Environment.} Pin the notebooks to Julia 1.11 (or record the 1.9.3 manifest) ---
+\code{backward\_euler\_scaling\_jl.ipynb} is already broken by the \code{Optim} API change. To
+exercise the \code{CairoMakie} paths in a future session the sandbox needs write access to
+\code{\textasciitilde/.julia} and to \code{/dev/ptmx}.
+\end{enumerate}
+
+\end{document}
