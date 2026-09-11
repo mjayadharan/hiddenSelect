@@ -15,9 +15,17 @@
   "bytes": 2069167,
   "sha256": "7951e49e3733e2f126072b151260e67b623fd00fc74869b3d5a069d968bf5f7f"
  },
+ "anim_lv_landscape_x2_xy.csv": {
+  "bytes": 13792727,
+  "sha256": "70fd32ac3df6608b9d2373ac3c5c811bc9a7aa90780ed510118e98347264787e"
+ },
  "anim_lv_landscape_x_xy.csv": {
   "bytes": 2289897,
   "sha256": "b5766260bcdb0398e8df885d8828474b252f863b6ab86616191a609673f055e3"
+ },
+ "anim_lv_landscape_xy_xy.csv": {
+  "bytes": 12599284,
+  "sha256": "4a766ea8a70de51ef316e78bda9a430c8c3d70e6229cb26d38456348fd9799b7"
  },
  "bug_F1_jacobian.csv": {
   "bytes": 117144,
@@ -204,8 +212,8 @@
   "sha256": "e92e04d63af4151dadd0920cd8bcdf209845eaa7129c2c74fb8a05e4988855a8"
  },
  "results_hashes.json": {
-  "bytes": 7055,
-  "sha256": "a26418a1f530eb9a01514d1b1efe707dfcccfe2ab3ba08d66f28794079ab2b51"
+  "bytes": 7712,
+  "sha256": "3bf3aad57f8cb4f5fb47c056c321636d91ffde9705f28c62b60b7fb14cee0870"
  },
  "solvers_eval.csv": {
   "bytes": 18911,

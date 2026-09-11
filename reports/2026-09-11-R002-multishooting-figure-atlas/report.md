@@ -70,6 +70,8 @@ Animations (MP4, H.264; frames regenerable by `figures/make_animations.py`; the 
 
 - `figures/anim_lv_landscape.mp4` — Lotka–Volterra: the 2-D cost landscape in the ($`x`$, $`xy`$) coefficient plane of $`\dot x`$ morphing through every FULL window size, with the GP and control paths (seed 1) overlaid (data: `anim_lv_landscape_x_xy.csv`, script `analysis/11_lv_landscape.jl`).
 
+- `figures/anim_lv_landscape_x2_xy.mp4`, `figures/anim_lv_landscape_xy_xy.mp4` — the same at $`161\times161`$ resolution in two more planes: ($`x^2`$, $`xy`$) of $`\dot x`$, where the true-zero quadratic term produces finite-time blow-up (the analogue of the FHN cubic: a smooth diagonal valley at $`\kappa=1`$ shatters into a thin sliver with secondary minima at $`\kappa=100`$), and the interaction pair ($`xy`$ in $`\dot x`$, $`xy`$ in $`\dot y`$), where a round bowl becomes an L-shaped plateau (data: `anim_lv_landscape_x2_xy.csv`, `anim_lv_landscape_xy_xy.csv`).
+
 A slide deck telling the story in 8 slides is in `slides/multishooting_story.pptx` (built by `slides/make_deck.py` from these figures and `tables/table_numbers.json`). Every figure exists as PDF and PNG under `figures/`.
 
 # Introduction

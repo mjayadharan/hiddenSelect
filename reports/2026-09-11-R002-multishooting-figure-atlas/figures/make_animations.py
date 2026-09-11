@@ -9,7 +9,9 @@ Outputs (figures/):
   anim_fhn_landscape.mp4          2-D cost landscape morphing with κ, with the GP / control paths
   anim_lv_sweep.mp4               Lotka–Volterra: x(t), y(t) fits along the sweep (seed 1)
   anim_lv_phase.mp4               Lotka–Volterra phase plane + coefficient bars (seed 1)
-  anim_lv_landscape.mp4           Lotka–Volterra cost landscape morphing with κ, with the GP / control paths
+  anim_lv_landscape.mp4           Lotka–Volterra cost landscape (x, xy plane of ẋ) morphing with κ, GP / control paths
+  anim_lv_landscape_x2_xy.mp4     same in the (x², xy) plane of ẋ, 161×161 (true-zero quadratic term: finite-time blow-up)
+  anim_lv_landscape_xy_xy.mp4     same in the (xy in ẋ, xy in ẏ) interaction plane, 161×161
 Usage: python make_animations.py [name ...]
 """
 import sys, pathlib, subprocess, os, glob, shutil
@@ -212,29 +214,41 @@ def anim_lv_phase():
     encode(d, OUT / "anim_lv_phase.mp4", 1/1.6)
 
 
-@anim
-def anim_lv_landscape():
-    """Lotka–Volterra: 2-D cost landscape in the (x, xy) coefficient plane of ẋ at every FULL
-    window size, with the GP and control paths (seed 1; the LV sweep visits κ ∈ SHORT)."""
-    L = read_csv("anim_lv_landscape_x_xy.csv"); _, _, _, o, mins, ks = _lv_common(); d = frames_dir("lv_landscape")
+LV_PLANES = {  # name: (csv suffix, col a, col b, z index a, z index b, truth a, truth b, label a, label b)
+    "x_xy":  ("x_xy",  "dp_x",    "dp_xy",   6, 7,  1.0, -0.5, r"coefficient of $x$ in $\dot x$ (true 1.0)",   r"coefficient of $xy$ in $\dot x$ (true $-0.5$)"),
+    "x2_xy": ("x2_xy", "dp_x2",   "dp_xy",   8, 7,  0.0, -0.5, r"coefficient of $x^2$ in $\dot x$ (true 0)",  r"coefficient of $xy$ in $\dot x$ (true $-0.5$)"),
+    "xy_xy": ("xy_xy", "dp_xy_x", "dp_xy_y", 7, 13, -0.5, 0.3, r"coefficient of $xy$ in $\dot x$ (true $-0.5$)", r"coefficient of $xy$ in $\dot y$ (true 0.3)"),
+}
+def _lv_landscape(plane, out_name):
+    """Lotka–Volterra: 2-D cost landscape in one coefficient plane at every FULL window size,
+    with the GP and control paths (seed 1; the LV sweep visits κ ∈ SHORT) overlaid."""
+    suf, ca, cb, ia, ib, ta, tb, la, lb = LV_PLANES[plane]
+    L = read_csv(f"anim_lv_landscape_{suf}.csv"); _, _, _, o, mins, ks = _lv_common(); d = frames_dir(out_name)
     vmin = L.J[L.J < 1e3].min(); vmax = L.J[L.J < 1e3].quantile(0.98)
-    path = {arm: mins[(mins.arm == arm) & (mins["index"].isin([6, 7]))].pivot(index="window_size", columns="index", values="value") for arm in ("propagate", "reset")}  # z index 6 = coef of x, 7 = coef of xy
+    path = {arm: mins[(mins.arm == arm) & (mins["index"].isin([ia, ib]))].pivot(index="window_size", columns="index", values="value") for arm in ("propagate", "reset")}
     for i, k in enumerate(FULL):
         fig, ax = plt.subplots(figsize=(7.5, 5.6))
-        g = L[L.window_size == k]; X = np.sort(g.dp_x.unique()) + 1.0; Y = np.sort(g.dp_xy.unique()) - 0.5
-        Z = g.pivot(index="dp_xy", columns="dp_x", values="J").values
+        g = L[L.window_size == k]; X = np.sort(g[ca].unique()) + ta; Y = np.sort(g[cb].unique()) + tb
+        Z = g.pivot(index=cb, columns=ca, values="J").values
         im = ax.pcolormesh(X, Y, np.ma.masked_where(Z >= 1e3, Z), cmap=SEQ_CMAP + "_r", norm=LogNorm(vmin=vmin, vmax=vmax), shading="nearest")
         ax.pcolormesh(X, Y, np.ma.masked_where(Z < 1e3, np.ones_like(Z)), cmap="Greys", vmin=0, vmax=1.6, shading="nearest")
-        ax.contour(X, Y, np.ma.masked_where(Z >= 1e3, Z), levels=np.geomspace(vmin, vmax, 8), colors=GREY, linewidths=0.4)
-        ax.plot(1.0, -0.5, marker="*", color=YELLOW, ms=14, mec=INK, mew=0.8, label=r"truth $p^\star$")
+        ax.contour(X, Y, np.ma.masked_where(Z >= 1e3, Z), levels=np.geomspace(vmin, vmax, 10), colors=GREY, linewidths=0.35)
+        ax.plot(ta, tb, marker="*", color=YELLOW, ms=14, mec=INK, mew=0.8, label=r"truth $p^\star$")
         for arm in ("propagate", "reset"):
             P = path[arm]; P = P[P.index <= k]
             if len(P):
-                ax.plot(P[6], P[7], "-o", color=ARM[arm], ms=4, lw=1.4, alpha=0.9, label=ARM_LABEL[arm] + " (seed 1)"); ax.plot(P[6].iloc[-1], P[7].iloc[-1], "o", color=ARM[arm], ms=9, mec="white", mew=1)
-        ax.set_xlim(X.min(), X.max()); ax.set_ylim(Y.min(), Y.max()); ax.set_xlabel(r"coefficient of $x$ in $\dot x$ (true 1.0)", fontsize=11); ax.set_ylabel(r"coefficient of $xy$ in $\dot x$ (true $-0.5$)", fontsize=11)
+                ax.plot(P[ia], P[ib], "-o", color=ARM[arm], ms=4, lw=1.4, alpha=0.9, label=ARM_LABEL[arm] + " (seed 1)"); ax.plot(P[ia].iloc[-1], P[ib].iloc[-1], "o", color=ARM[arm], ms=9, mec="white", mew=1)
+        ax.set_xlim(X.min(), X.max()); ax.set_ylim(Y.min(), Y.max()); ax.set_xlabel(la, fontsize=11); ax.set_ylabel(lb, fontsize=11)
         ax.set_title(rf"Lotka–Volterra cost landscape $J_\kappa$ at $\kappa$ = {k} (other coefficients at truth); grey = blow-up", fontsize=11); ax.legend(fontsize=9, loc="lower left")
         fig.colorbar(im, ax=ax, pad=0.02, label=r"$J_\kappa$"); fig.tight_layout(); savef(fig, d, i)
-    encode(d, OUT / "anim_lv_landscape.mp4", 1/1.4)
+    encode(d, OUT / f"{out_name}.mp4", 1/1.4)
+
+@anim
+def anim_lv_landscape(): _lv_landscape("x_xy", "anim_lv_landscape")
+@anim
+def anim_lv_landscape_x2_xy(): _lv_landscape("x2_xy", "anim_lv_landscape_x2_xy")
+@anim
+def anim_lv_landscape_xy_xy(): _lv_landscape("xy_xy", "anim_lv_landscape_xy_xy")
 
 if __name__ == "__main__":
     for n in (sys.argv[1:] or list(ANIMS)):
