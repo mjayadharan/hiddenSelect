@@ -68,6 +68,8 @@ Animations (MP4, H.264; frames regenerable by `figures/make_animations.py`; the 
 
 - `figures/anim_lv_sweep.mp4`, `figures/anim_lv_phase.mp4` — Lotka–Volterra: $`x(t),y(t)`$ fits, phase plane and coefficients along the sweep, GP vs control (seed 1).
 
+- `figures/anim_lv_landscape.mp4` — Lotka–Volterra: the 2-D cost landscape in the ($`x`$, $`xy`$) coefficient plane of $`\dot x`$ morphing through every FULL window size, with the GP and control paths (seed 1) overlaid (data: `anim_lv_landscape_x_xy.csv`, script `analysis/11_lv_landscape.jl`).
+
 A slide deck telling the story in 8 slides is in `slides/multishooting_story.pptx` (built by `slides/make_deck.py` from these figures and `tables/table_numbers.json`). Every figure exists as PDF and PNG under `figures/`.
 
 # Introduction

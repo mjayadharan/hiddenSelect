@@ -9,6 +9,7 @@ Outputs (figures/):
   anim_fhn_landscape.mp4          2-D cost landscape morphing with κ, with the GP / control paths
   anim_lv_sweep.mp4               Lotka–Volterra: x(t), y(t) fits along the sweep (seed 1)
   anim_lv_phase.mp4               Lotka–Volterra phase plane + coefficient bars (seed 1)
+  anim_lv_landscape.mp4           Lotka–Volterra cost landscape morphing with κ, with the GP / control paths
 Usage: python make_animations.py [name ...]
 """
 import sys, pathlib, subprocess, os, glob, shutil
@@ -209,6 +210,31 @@ def anim_lv_phase():
             ax.legend(fontsize=8, loc="lower right", ncol=2); ax.set_ylabel("coefficient", fontsize=10)
         fig.tight_layout(); savef(fig, d, i)
     encode(d, OUT / "anim_lv_phase.mp4", 1/1.6)
+
+
+@anim
+def anim_lv_landscape():
+    """Lotka–Volterra: 2-D cost landscape in the (x, xy) coefficient plane of ẋ at every FULL
+    window size, with the GP and control paths (seed 1; the LV sweep visits κ ∈ SHORT)."""
+    L = read_csv("anim_lv_landscape_x_xy.csv"); _, _, _, o, mins, ks = _lv_common(); d = frames_dir("lv_landscape")
+    vmin = L.J[L.J < 1e3].min(); vmax = L.J[L.J < 1e3].quantile(0.98)
+    path = {arm: mins[(mins.arm == arm) & (mins["index"].isin([6, 7]))].pivot(index="window_size", columns="index", values="value") for arm in ("propagate", "reset")}  # z index 6 = coef of x, 7 = coef of xy
+    for i, k in enumerate(FULL):
+        fig, ax = plt.subplots(figsize=(7.5, 5.6))
+        g = L[L.window_size == k]; X = np.sort(g.dp_x.unique()) + 1.0; Y = np.sort(g.dp_xy.unique()) - 0.5
+        Z = g.pivot(index="dp_xy", columns="dp_x", values="J").values
+        im = ax.pcolormesh(X, Y, np.ma.masked_where(Z >= 1e3, Z), cmap=SEQ_CMAP + "_r", norm=LogNorm(vmin=vmin, vmax=vmax), shading="nearest")
+        ax.pcolormesh(X, Y, np.ma.masked_where(Z < 1e3, np.ones_like(Z)), cmap="Greys", vmin=0, vmax=1.6, shading="nearest")
+        ax.contour(X, Y, np.ma.masked_where(Z >= 1e3, Z), levels=np.geomspace(vmin, vmax, 8), colors=GREY, linewidths=0.4)
+        ax.plot(1.0, -0.5, marker="*", color=YELLOW, ms=14, mec=INK, mew=0.8, label=r"truth $p^\star$")
+        for arm in ("propagate", "reset"):
+            P = path[arm]; P = P[P.index <= k]
+            if len(P):
+                ax.plot(P[6], P[7], "-o", color=ARM[arm], ms=4, lw=1.4, alpha=0.9, label=ARM_LABEL[arm] + " (seed 1)"); ax.plot(P[6].iloc[-1], P[7].iloc[-1], "o", color=ARM[arm], ms=9, mec="white", mew=1)
+        ax.set_xlim(X.min(), X.max()); ax.set_ylim(Y.min(), Y.max()); ax.set_xlabel(r"coefficient of $x$ in $\dot x$ (true 1.0)", fontsize=11); ax.set_ylabel(r"coefficient of $xy$ in $\dot x$ (true $-0.5$)", fontsize=11)
+        ax.set_title(rf"Lotka–Volterra cost landscape $J_\kappa$ at $\kappa$ = {k} (other coefficients at truth); grey = blow-up", fontsize=11); ax.legend(fontsize=9, loc="lower left")
+        fig.colorbar(im, ax=ax, pad=0.02, label=r"$J_\kappa$"); fig.tight_layout(); savef(fig, d, i)
+    encode(d, OUT / "anim_lv_landscape.mp4", 1/1.4)
 
 if __name__ == "__main__":
     for n in (sys.argv[1:] or list(ANIMS)):

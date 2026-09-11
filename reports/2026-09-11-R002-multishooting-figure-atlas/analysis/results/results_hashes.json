@@ -1,4 +1,24 @@
 {
+ "anim_concept_costs.csv": {
+  "bytes": 715,
+  "sha256": "97f6904a27aed7a884f62ac62014ea132d4f9a68b9f88426fb97605c703be8f1"
+ },
+ "anim_concept_segments.csv": {
+  "bytes": 899629,
+  "sha256": "a454a60cf85fe34186b17533ac40d28852e724342ea85d1602a7f1d90d706df8"
+ },
+ "anim_landscape_v_v3.csv": {
+  "bytes": 1595938,
+  "sha256": "8ec7bb885068523cd74b715bca89e415f6bf285a46fd95156528f294ef4fd547"
+ },
+ "anim_lv_fits.csv": {
+  "bytes": 2069167,
+  "sha256": "7951e49e3733e2f126072b151260e67b623fd00fc74869b3d5a069d968bf5f7f"
+ },
+ "anim_lv_landscape_x_xy.csv": {
+  "bytes": 2289897,
+  "sha256": "b5766260bcdb0398e8df885d8828474b252f863b6ab86616191a609673f055e3"
+ },
  "bug_F1_jacobian.csv": {
   "bytes": 117144,
   "sha256": "2ffdbbe71e45b4b0c1e28508394cdb2a39b66396d2158f30e435179919eb1df6"
@@ -185,7 +205,7 @@
  },
  "results_hashes.json": {
   "bytes": 7055,
-  "sha256": "8f6ef41ae6d2730467988710e377bd2f197422540ee26269bab796894fda243b"
+  "sha256": "a26418a1f530eb9a01514d1b1efe707dfcccfe2ab3ba08d66f28794079ab2b51"
  },
  "solvers_eval.csv": {
   "bytes": 18911,
