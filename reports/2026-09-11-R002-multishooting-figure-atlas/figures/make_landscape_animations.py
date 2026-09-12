@@ -186,23 +186,45 @@ def render2d(key, m):
 # bulk of the plane) owns most of the vertical axis and flattens the valley that is the subject of
 # the picture. Clipped cells are drawn grey and named in the title; no cost value is altered
 # anywhere except in the height and colour of this one surface.
-def render3d(key, m):
-    ks, X, Y, J = load_grid(m); paths = load_paths(m)
+def render3d(key, m, mode="arms"):
+    """mode="arms": overlay the GP and control minimiser paths (the default).
+    mode="control": ONLY the no-propagation arm -- the minimiser the optimiser returns at each
+    kappa when every stage restarts from the same seed. This is what the method does BEFORE guess
+    propagation is introduced.
+    mode="minimum": no optimiser paths at all -- mark the minimum of the DRAWN plane, argmin
+    J_kappa. Note "minimum" and "control" are different objects: argmin J_kappa is the best point of
+    a slice whose other 18 coefficients are pinned at truth, so it sits on the truth star at every
+    kappa; the control minimiser is a full 20-dimensional optimiser output projected down and does
+    not."""
+    ks, X, Y, J = load_grid(m)
+    paths = load_paths(m) if mode in ("arms", "control") else {}
+    if mode == "control":
+        paths = {"reset": paths["reset"]}
     vmin, vmax = limits(J); fb, ba = scalars(J)
     GX, GY = np.meshgrid(X, Y, indexing="ij")
     zfloor, zceil = np.log10(vmin), np.log10(vmax)
     zbase = zfloor - 0.30 * (zceil - zfloor)          # height of the projected contour floor
     norm = Normalize(vmin=zfloor, vmax=zceil)
     sysname = "FitzHugh–Nagumo" if m["system"] == "fhn" else "Lotka–Volterra"
-    d = frames_dir(f"ls3d_{key}")
+    d = frames_dir(f"ls3d_{key}" + ("" if mode == "arms" else f"_{mode}"))
+    jmins = np.array([J[i][J[i] < BLOW].min() for i in range(len(FULL))])
+    perr = None
+    if mode == "control":      # full-dimensional parameter error of the no-propagation arm
+        sw = read_csv("sweeps.csv" if m["system"] == "fhn" else "other_sweeps.csv")
+        sw = sw[(sw.arm == "reset") & (sw.seed == m["seed"])]
+        sw = sw[sw.exp == "main"] if m["system"] == "fhn" else sw[sw.system == "lv"]
+        perr = np.array([float(sw[sw.window_size == k].p_err.iloc[0]) for k in FULL])
+        seed_perr = float(sw.seed_p_err.iloc[0])   # the shared starting guess, NOT the kappa=1 result
     n_hold = [2 * SUB] + [SUB] * (len(FULL) - 2) + [2 * SUB]
     total = sum(n_hold); f = 0
     for i, k in enumerate(FULL):
         Zc = np.log10(np.clip(J[i], vmin, vmax))       # clipped display surface
         blown = J[i] >= BLOW
         fc = CMAP(norm(Zc)); fc[blown] = mcolors.to_rgba(PLATEAU)
-        zt = float(np.clip(np.log10(J[i][np.abs(X - m["truth_a"]).argmin(),
-                                         np.abs(Y - m["truth_b"]).argmin()]), zfloor, zceil))
+        it = (np.abs(X - m["truth_a"]).argmin(), np.abs(Y - m["truth_b"]).argmin())
+        zt = float(np.clip(np.log10(J[i][it]), zfloor, zceil))
+        ja, jb = np.unravel_index(np.argmin(np.where(J[i] < BLOW, J[i], np.inf)), J[i].shape)
+        amin = (float(X[ja]), float(Y[jb]), float(J[i][ja, jb]))
         for s in range(n_hold[i]):
             fig = plt.figure(figsize=FIGSIZE)
             ax = fig.add_axes([0.115, 0.005, 0.885, 0.925], projection="3d", computed_zorder=False)
@@ -217,6 +239,15 @@ def render3d(key, m):
                     mec=INK, mew=0.5, alpha=0.55, zorder=3)
             ax.plot([m["truth_a"]], [m["truth_b"]], [zt], marker="*", color=YELLOW, ms=15,
                     mec=INK, mew=0.8, ls="none", label=r"truth $p^\star$", zorder=8)
+            if mode == "minimum":       # the minimum OF THE PLANE, not an optimiser iterate
+                za = float(np.clip(np.log10(amin[2]), zfloor, zceil))
+                ax.plot([amin[0]] * 2, [amin[1]] * 2, [zbase, za], color=VERMILION, lw=0.8,
+                        alpha=0.7, zorder=4)
+                ax.plot([amin[0]], [amin[1]], [zbase], marker="D", color=VERMILION, ms=4,
+                        mec=INK, mew=0.4, alpha=0.5, zorder=3)
+                ax.plot([amin[0]], [amin[1]], [za + 0.02 * (zceil - zfloor)], marker="D",
+                        color=VERMILION, ms=7, mec="white", mew=0.9, ls="none", zorder=9,
+                        label=r"plane minimum $\arg\min_\Pi J_\kappa$")
             for arm, P in paths.items():
                 Q = P[P.index <= k]
                 if not len(Q):
@@ -224,8 +255,9 @@ def render3d(key, m):
                 zs = [surface_z(X, Y, J[i], a, b, zfloor, zceil) + 0.02 * (zceil - zfloor)
                       for a, b in zip(Q.a, Q.b)]
                 ax.plot(Q.a, Q.b, [zbase] * len(Q), "-", color=ARM[arm], lw=0.8, alpha=0.4, zorder=1)
-                ax.plot(Q.a, Q.b, zs, "-o", color=ARM[arm], ms=2.8, lw=1.3, zorder=6,
-                        label=ARM_LABEL[arm] + f" (seed {m['seed']})")
+                lab = (rf"minimiser at each $\kappa$, no guess propagation (seed {m['seed']})"
+                       if mode == "control" else ARM_LABEL[arm] + f" (seed {m['seed']})")
+                ax.plot(Q.a, Q.b, zs, "-o", color=ARM[arm], ms=2.8, lw=1.3, zorder=6, label=lab)
                 ax.plot([Q.a.iloc[-1]], [Q.b.iloc[-1]], [zs[-1]], "o", color=ARM[arm], ms=6.5,
                         mec="white", mew=0.9, ls="none", zorder=9)
             ax.set_xlim(X.min(), X.max()); ax.set_ylim(Y.min(), Y.max()); ax.set_zlim(zbase, zceil)
@@ -250,16 +282,44 @@ def render3d(key, m):
                                  rf"basin ($J<2J_\min$): {ba[i]*100:.3g} % of the plane",
                                  rf"blow-up plateau: {fb[i]*100:.3g} % of the plane",
                                  rf"$J_\kappa^{{\min}}$ = {J[i][J[i] < BLOW].min():.4g}",
-                                 rf"$J_\kappa$ at $p^\star$ = {J[i][np.abs(X - m['truth_a']).argmin(), np.abs(Y - m['truth_b']).argmin()]:.4g}"]),
+                                 rf"$J_\kappa$ at $p^\star$ = {J[i][it]:.4g}"]
+                                + ([rf"$\|p^{{(\kappa)}}-p^\star\|$ = {perr[i]:.3f}   (starting guess: {seed_perr:.3f})"]
+                                   if mode == "control" else [])
+                                + ([rf"$\arg\min_\Pi J_\kappa$ = ({amin[0]:.3f}, {amin[1]:.3f})",
+                                    rf"distance to $p^\star$ = {np.hypot(amin[0]-m['truth_a'], amin[1]-m['truth_b']):.3f}"]
+                                   if mode == "minimum" else [])),
                      fontsize=7.5, va="top", ha="left", color=INK, linespacing=1.9)
-            cax = fig.add_axes([0.032, 0.24, 0.012, 0.29])
+            if mode in ("minimum", "control"):
+                a2 = fig.add_axes([0.080, 0.345, 0.092, 0.205])
+                yv = jmins if mode == "minimum" else perr
+                a2.plot(FULL, yv, color=VERMILION, lw=1.1, alpha=0.3)
+                a2.plot(FULL[:i+1], yv[:i+1], color=VERMILION, lw=1.5, marker="o", ms=2.2)
+                a2.plot(k, yv[i], "o", color=VERMILION, ms=5.5, mec="white", mew=0.9)
+                a2.set_xscale("log"); a2.set_yscale("log")
+                if mode == "control":      # the guess every stage restarts from
+                    a2.axhline(seed_perr, color=GREY, lw=0.8, ls="--", alpha=0.8)
+                    a2.text(1.05, seed_perr, "seed", fontsize=5, color=GREY, va="bottom")
+                a2.set_ylim(yv.min() * 0.8, yv.max() * 1.25)
+                a2.set_yticks([float(f"{v:.2g}") for v in np.geomspace(yv.min(), yv.max(), 3)])
+                a2.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:g}"))
+                a2.yaxis.set_minor_formatter(plt.NullFormatter())
+                a2.tick_params(labelsize=5.5, pad=1)
+                a2.set_ylabel(r"$J_\kappa^{\min}$" if mode == "minimum"
+                              else r"$\|p^{(\kappa)}-p^\star\|$", fontsize=7.5, labelpad=1)
+                a2.set_xlabel(r"window size $\kappa$", fontsize=6, labelpad=1)
+                cax = fig.add_axes([0.080, 0.245, 0.092, 0.011])     # horizontal, under the panel
+                orient = "horizontal"
+            else:
+                cax = fig.add_axes([0.032, 0.24, 0.012, 0.29]); orient = "vertical"
             sm = ScalarMappable(norm=norm, cmap=CMAP); sm.set_array([])
-            cb = fig.colorbar(sm, cax=cax)
+            cb = fig.colorbar(sm, cax=cax, orientation=orient)
             cb.set_label(r"$\log_{10} J_\kappa$", fontsize=7); cb.ax.tick_params(labelsize=6)
-            cax.yaxis.set_ticks_position("left"); cax.yaxis.set_label_position("left")
+            if orient == "vertical":
+                cax.yaxis.set_ticks_position("left"); cax.yaxis.set_label_position("left")
             savef(fig, d, f); f += 1
         print(f"  {key} 3-D: kappa={k} ({f}/{total} frames)", flush=True)
-    encode(d, OUT / f"anim3d_{'fhn' if m['system']=='fhn' else 'lv'}_landscape_{key.replace('lv_','')}.mp4", 24)
+    encode(d, OUT / (f"anim3d_{'fhn' if m['system']=='fhn' else 'lv'}_landscape_{key.replace('lv_','')}"
+                     + ("" if mode == "arms" else f"_{mode}") + ".mp4"), 24)
 
 # ------------------------------------------------------------------ main ------
 
@@ -267,8 +327,8 @@ PLANES_3D = ["wv_ww", "v2_w2", "v_v3", "lv_x2_xy"]      # the drastic FHN planes
 
 if __name__ == "__main__":
     args = sys.argv[1:]
-    what = args[0] if args and args[0] in ("2d", "3d", "all") else "all"
-    rest = [a for a in args if a not in ("2d", "3d", "all")]
+    what = args[0] if args and args[0] in ("2d", "3d", "3d-min", "3d-control", "all") else "all"
+    rest = [a for a in args if a not in ("2d", "3d", "3d-min", "3d-control", "all")]
     M = meta_all()
     if what in ("2d", "all"):
         for key in (rest or list(M)):
@@ -276,6 +336,11 @@ if __name__ == "__main__":
     if what in ("3d", "all"):
         for key in (rest or PLANES_3D):
             print("3-D:", key, flush=True); render3d(key, M[key])
+    for w, md, desc in (("3d-min", "minimum", "plane minimum, no optimiser paths"),
+                        ("3d-control", "control", "no-propagation arm only")):
+        if what == w:
+            for key in (rest or ["wv_ww"]):
+                print(f"3-D ({desc}):", key, flush=True); render3d(key, M[key], mode=md)
     if GEOM:
         # the basin/plateau numbers quoted in the report come from THIS grid, not the 61x61 screen
         g = pd.DataFrame(GEOM).drop_duplicates(["plane", "window_size"])
