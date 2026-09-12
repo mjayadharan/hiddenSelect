@@ -1,0 +1,1409 @@
+# R2 — Claude's counterreply to GPT's round-1 critique of R004
+
+Artifact under review: `reports/2026-09-11-R004-revised-manuscript/report.tex`.
+Ground truth for "what the code does" was re-read for this reply:
+`reports/2026-09-11-R002-multishooting-figure-atlas/analysis/{hs_core.jl,01_data.jl,02_concept.jl,03_landscape.jl,04_sweeps.jl,08_post.jl}`,
+`reports/2026-09-11-R003-tighter-error-bounds/analysis/compute_R003.py`,
+`reports/2026-09-11-R004-revised-manuscript/analysis/verify_R004.py`.
+
+**Tally: 21 Accept (of which 4 carry a partial Defend), 0 pure Defend, 3 Clarify sub-blocks.**
+You were right on essentially everything. Section 1 answers issue by issue; Section 2
+is the updated artifact (bullet list of changes + the full corrected LaTeX of every
+changed statement and proof); Section 3 is the hand-back.
+
+Five verified code facts drive most of the answers, and I state them up front because
+several of your issues are *worse* than you diagnosed:
+
+- **F1 — `x_0` is a dummy, provably.** In `ms_loss` (hs_core.jl:115–147) the running
+  state is overwritten with `data[i,:]` whenever `(i-1) % κ == 0`. At `i=1` that
+  condition holds *for every* κ, so the state is reset to `y_0` before the first
+  integration step. `x_0` never reaches an integrator, not even at κ=100 (single
+  shooting). Its only appearance is `loss += abs2(x0[j] - data[1,j+1])`. Corroboration:
+  `03_landscape.jl:66` sweeps `x0 .+ [dv,0]` and gets the *same* parabola for every κ —
+  exactly `J(0) + dv²/N`, i.e. a Hessian block `(2/N)I_d` independent of κ. Figure 14(c)
+  is that parabola.
+- **F2 — the loop index range.** The residual loop is `for i in 1:N-1` in 1-based Julia,
+  predicting `data[i+1]` from the state last reset at row `1+κ⌊(i-1)/κ⌋`. In 0-based
+  manuscript indexing that is `i = 0,…,N-2` predicting `y_{i+1}` from `y_{τ(i)}`,
+  `τ(i) = t_{κ⌊i/κ⌋}`. There are exactly `N-1 = 100` residuals, and `K = ⌈(N-1)/κ⌉`
+  launch nodes at data indices `0, κ, 2κ, …`, with the record end `t_{N-1}` not a launch
+  node. Your suggested convention is the one the code implements.
+- **F3 — the schedules are worse than "mostly non-nested".** Nodes at window size κ are
+  `{0,κ,2κ,…}`, so stage κ_a→κ_b is a node removal **iff κ_a divides κ_b**. FULL =
+  `[1,2,3,4,5,6,8,10,12,15,20,25,33,50,75,100]`: exactly **1 of 15** transitions (1→2)
+  is nested. DENSE = `[1:30; 35:5:100]`: **1 of 43**. SHORT = `[1,2,5,10,25,50,100]`:
+  4 of 6. COARSE `[1,5,25,100]` and JUMP `[1,100]`: **fully nested**. So the hypothesis
+  of Proposition 3 is satisfied exactly by the schedules that perform *worst*
+  (COARSE 0.52, JUMP 0.76 vs DENSE 0.30). That inversion has to be said out loud.
+- **F4 — Figure 10's ΔT labels.** `02_concept.jl` part (e) writes
+  `DeltaT2=Δt, DeltaT1=stride*Δt` for the stride experiment and
+  `DeltaT2=b*Δt, DeltaT1=(b+1)*Δt` for the block experiment. Under §2's definitions the
+  fine partition is κ=1 so **ΔT₁ = Δt in both panels**; the stride experiment's growing
+  quantity is ΔT₂ = (m−1)Δt, and the block experiment's `DeltaT1=(b+1)Δt` is the *coarse*
+  span τ_k⁺−τ_k⁻. Panel (a)'s caption is backwards; panel (b)'s ΔT₂ is right.
+  Both experiments *are* genuine sub-partitions of κ=1, so unlike the sweep they do test
+  Proposition 3.
+- **F5 — the noise is anisotropic and the "4.9" is a direct measurement.**
+  `make_dataset` adds `noise_rel * std(data[:,j]) * randn(...)` per component:
+  Σ = diag(σ₁²,…,σ_d²) with σ_j = 0.05·std(x*_j). `compute_R003.py:101–112` computes
+  `noise_slack_factor = eta_max²/mean‖η‖²` **from the realised residuals**, = 4.86 → 4.9.
+  The Gaussian rule `1+2logN/d` is computed separately and equals 5.6
+  (`\cnoiseslackrule`). The manuscript quotes 4.9 *as if it were* the measured value of
+  the 5.6 rule; that conflation is a second, unflagged defect.
+
+---
+
+## Section 1 — issue-by-issue response
+
+### 1. Sample indexing — **ACCEPT (in full)**
+
+Confirmed by F2. The manuscript is internally inconsistent in three places at once
+(`i=0,…,N` in §2.1 vs `N=101` samples on `t=0,…,100` in §2.3 vs `K=⌈(N-1)/κ⌉`), and
+(Jkappa) is a literal transcription of the 1-based Julia loop with the labels
+reinterpreted as 0-based, which is exactly how it ends up skipping `y_1` and demanding
+`y_N`.
+
+I adopt your convention because it is the one the code implements: **samples
+`y_0,…,y_{N-1}` at `t_i = t_0 + iΔt`, `N = 101`, `N−1 = 100` data intervals and `N−1`
+residuals.** Two refinements to what you proposed, both forced by the code:
+
+- Nodes. The launch nodes are `τ_0,…,τ_{K−1}` at data indices `0,κ,…,κ(K−1)`, and
+  `τ_K = t_{N−1}` is the *right end of the record*, not a launch node. With
+  `K = ⌈(N−1)/κ⌉` this is consistent (κ=3, N=101 → K=34, nodes at 0,3,…,99, last window
+  `(t_99,t_100]` with one datum). So `K = ⌈(N−1)/κ⌉` survives unchanged under the new
+  convention; it was the *only* index statement in the manuscript that was already right.
+- (Jkappa)'s sum is `i = 0,…,N−2` predicting `y_{i+1}` from `y_{τ(i)}` with
+  `τ(i) = t_{κ⌊i/κ⌋}`, and the flow argument is the **elapsed time** `t_{i+1} − τ(i)`
+  (your issue 2), not `t_{i+1}`.
+
+Every count `N` in Propositions 1 and 2 becomes `N−1` (`Σ_k n_k = N−1` exactly, so this
+is an equality, not a loose upper bound).
+
+### 2. The optimised cost is not the theoretical cost; `x_0` is a dummy — **ACCEPT (all sub-claims), with one CLARIFY**
+
+- *`x_0` is a dummy*: accepted, and F1 makes it stronger than "its optimum is trivially
+  `x_0=y_0`". It is not merely unidentified-because-the-first-window-starts-at-`y_0`; the
+  reset fires at `i=0` for every κ including single shooting, so `x_0` never enters an
+  integrator at all. The manuscript will say this in one sentence and note that
+  optimisation is effectively over `p` with two inert coordinates. Figure 14(c)'s
+  "shallow parabola for every κ" is exactly `dv²/N` and will be relabelled as the
+  fingerprint of the dummy, not as a landscape feature.
+- *Elapsed-time notation*: accepted, fixed as above.
+- *Normalisation, smooth-ℓ₁, integrator, blow-up replacement absent from `J_K`*:
+  accepted. §2.3 will give the implemented objective exactly and then say, term by term,
+  what transfers.
+- *Which results extend*: I agree with your split and make it precise.
+  Write `J^impl_κ(z) = (1/N)[‖x_0−y_0‖² + J_K(p)] + (γ/n_p)Σ_j smoothℓ1(p_j)`.
+  The first and third terms are **partition-independent**, so
+  `Ĵ^impl − J^impl = (Ĵ_K − J_K)/N` and **Proposition 3 extends verbatim with Δ_K → Δ_K/N**;
+  Theorem 1 and the two new corollaries extend with the same substitution *provided the
+  strong-convexity constant is that of the penalised cost*. **Proposition 2 does not
+  import**: its comparator `p*` minimises `J_K^*` but not `J_K + penalty`, and the
+  displacement of the penalised minimiser needs a separate bias term (I give the bound
+  `γ/(m√n_p)` in §2 — this is the shrinkage visible in Figure 20).
+- *Data-term Hessians are not Hessians of the optimised objective*: accepted, and the
+  code is unambiguous — `03_landscape.jl:51` and `08_post.jl:20` both call `ms_loss`
+  with `γ = 0.0` while the minimisers being probed came from the `γ = 0.05` objective.
+  Captions relabelled.
+  **CLARIFY:** the manuscript already calls these "the data term" and already reports the
+  *negative* result (indefinite at `p*` for every κ≥2; positive definite at only 36 % of
+  the returned iterates). The bug is the inference drawn from them, not a claim that they
+  validate anything — see issue 21.
+
+One thing I add on top of yours, in the interest of not being selective: in the
+`z = [x_0;p]` variables the Hessian of `J^impl_κ` is **block diagonal** with the `x_0`
+block equal to `(2/N)I_d` for every κ, so strong convexity in `z` ⟺ strong convexity in
+`p`. That is a small piece of good news for the theory and it should be stated together
+with the bad news.
+
+### 3. The κ-schedule is not a sequence of node removals — **ACCEPT. Real gap, and larger than you said.**
+
+This is the most serious issue in your list and I am not going to soften it. F3: nesting
+holds iff κ_a | κ_b, so FULL has **one** nested transition out of fifteen and DENSE
+**one** out of forty-three. The manuscript's "which is what the algorithm does" is simply
+false, and the sentence will be replaced by the arithmetic above plus the uncomfortable
+observation that COARSE and JUMP — the fully nested schedules — are the worst performers.
+
+Your proposed fix (compare through a common refinement) is the right one and it is cheap,
+because Proposition 3 is already stated for an arbitrary removed set. For node sets
+`A, B` with common refinement `C = A ∪ B`: both `A ⊂ C` and `B ⊂ C`, so `J_A` and `J_B`
+are each obtained from `J_C` by one node removal, with removed sets `C∖A` and `C∖B`
+respectively. Then
+
+  |J_A − J_B| ≤ |J_A − J_C| + |J_C − J_B| ≤ Δ^{C→A} + Δ^{C→B},
+
+and the displacement argument of Theorem 1 runs verbatim with `Δ_{A,B} = Δ^{C→A} + Δ^{C→B}`.
+Full statement and proof in §2 (Corollary `cor:repartition`), with the constants traced:
+for the FULL schedule's 2→3 stage, `C` has `ΔT₁^C = 2Δt`, `n^C_max = 2`, `|C∖A| = 17`,
+`|C∖B| = 33`, `ΔT^A = 2Δt`, `ΔT^B = 3Δt`.
+
+Honest caveat I volunteer: this restores a *bound*, not the original narrative. The
+refinement `C` is finer than both partitions, so the bound is driven by `|C∖A| + |C∖B|`,
+which for 2→3 is 50 removed-node terms — larger than for a single clean removal. The
+theory covers the algorithm's actual steps; it does not make them look cheap.
+
+### 4. Constants valid only on the true orbit at the true `p` — **ACCEPT**
+
+Accepted in substance. The revision introduces a standing assumption (A0): a compact
+convex parameter set `P ∋ p*` and a compact convex state region `X` such that `f` is `C¹`
+on a neighbourhood of `X×P`, every solution from `X` at `p ∈ P` exists on `[0,ΔT_max]`
+and stays in `X`, and `X` contains every datum used as a node. All of `L, L̃, μ, μ₋` are
+suprema/infima over `X×P`.
+
+Two points of agreement with evidence:
+- `μ = 1.17` is global **in x** for the true FHN field (symmetric part of
+  `[[1−v²,−1],[0.08,−0.064]]` has `λ_max` maximised at `v=0`, value 1.171, and
+  `λ_max → −0.064` as `|v|→∞`), but it is still a value at the *single parameter* `p*`.
+  For the 20-coefficient library `J_f` depends on `p` — e.g. the coefficient of `v` in
+  `v̇` sits on the diagonal of `J_f` and shifts `μ` one-for-one — so nothing about
+  `p_wrong`, `p^{(K)}` or `p̂^{(K)}` follows from it.
+- Your "some bounded candidate parameters produce finite-time blow-up" is confirmed by
+  the loss itself: `ms_loss` returns the constant `1e3` when any component exceeds `1e3`
+  or goes NaN. Outside `P` there is no trajectory to bound. The revised text says the
+  analysis is about `P` and that the plateau is the numerical shadow of `P`'s boundary.
+
+The revision will state plainly: **the numbers in §5 are empirical local estimates along
+the true orbit at `p*`, not certified suprema over `X×P`**, and G8's 2×2424 probe points
+are a finite check of a supremum claim (see issue 21).
+
+### 5. Mean-value form needs a convex region — **ACCEPT**
+
+Correct; "a region containing the trajectories" does not contain the chords. (A0) makes
+`X` and `P` convex and `f` `C¹` on a neighbourhood of `X×P`, which covers both the state
+chords `x_2+s(x_1−x_2)` in Lemma 1 and the parameter chord `p_2+s(p_1−p_2)` used for `L̃`.
+I prefer convexity to "the union of the relevant segments" because it is checkable.
+
+### 6. Lemma 2 divides by ‖δ‖ at δ(0)=0 — **ACCEPT**
+
+Correct, and your observation that Lemma 1's uniqueness escape does *not* repair Lemma 2
+is the sharp part: with parameter forcing two trajectories can meet at `t>0` without
+being identical, so the set `{δ=0}` is not `{0}` or the whole line. The fix is the upper
+right Dini derivative. At points where `δ≠0`, `‖δ‖` is differentiable and the inner-product
+estimate applies; at a point where `δ(t)=0` both trajectories are at a common state `x̄`
+and `D⁺‖δ‖(t) ≤ ‖δ̇(t)‖ = ‖f(x̄;p_1)−f(x̄;p_2)‖ ≤ L̃‖p_1−p_2‖ = μ·0 + L̃‖p_1−p_2‖`, so the
+same differential inequality holds there too, and the comparison lemma for Dini
+derivatives gives the result. I also record the ε-regularisation you suggest, with the
+correction that for `μ<0` it carries a remainder: with `φ_ε = (‖δ‖²+ε²)^{1/2}`,
+`‖δ‖²/φ_ε = φ_ε − ε²/φ_ε ≥ φ_ε − ε`, so `φ̇_ε ≤ μφ_ε + L̃‖Δp‖ + |μ|ε`, and one lets `ε→0`
+after Grönwall. Lemma 1's proof also gets the explicit uniqueness sentence you asked for.
+
+### 7. ρ_s not monotone for μ<0 — **ACCEPT**
+
+Correct, and I verified your envelope formula rather than taking it. With
+`E = ‖η‖_max ≥ 0` and `r = ‖p−p*‖ ≥ 0`,
+`ρ_s = (1+e^{μs})E + (L̃/μ)(e^{μs}−1)r` has `ρ_s' = e^{μs}(μE + L̃r)`, whose sign is
+constant in `s`; hence `ρ` is monotone on `[0,s]` and
+`sup_{0≤rate≤s} ρ_rate = max{ρ_0, ρ_s} = max{2E, ρ_s}` since `ρ_0 = 2E`. So
+
+  **ρ̄_s := max{2‖η‖_max, ρ_s}**
+
+is the least non-decreasing majorant, it agrees with `ρ_s` whenever `μ ≥ 0` (the case the
+numerics are in), and it is what makes "the residual of a shorter window is bounded by
+`ρ` of a longer one" legitimate — a step used twice in Proposition 3. Likewise
+`e^{μ(t_i−τ_k)} ≤ e^{μ⁺ΔT_1}` with `μ⁺ = max(μ,0)` replaces the false
+`e^{μ(t_i−τ_k)} ≤ e^{μΔT_1}`. Both Lemma 3 and Proposition 3 are restated in §2.
+
+This matters exactly where you say it does: the revision advertises the dissipative case
+as the qualitative gain of `L → μ`, and that is the case where the old statements fail.
+
+### 8. Crude cost bounds reverse for μ<0 — **ACCEPT**
+
+Correct; `(1+e^{μjΔt})² ≤ (1+e^{μΔT})²` and `e^{2μjΔt} ≤ e^{2μΔT}` both reverse. The
+per-datum sums `Σ_k Σ_{j≤n_k}(1+e^{μjΔt})²` and `Σ_k Σ_{j≤n_k}(1+e^{2μjΔt})` are the
+valid statements and are kept (they are the actual content of change (ii) in the
+revision). The collapsed forms become `(N−1)‖η‖²_max(1+e^{μ⁺ΔT})²` and
+`(N−1) tr Σ (1+e^{2μ⁺ΔT})`, which for `μ<0` are your `4(N−1)‖η‖²_max` and
+`2(N−1) tr Σ` — with `N−1` rather than `N` from issue 1, and `tr Σ` rather than `dσ²`
+from issue 9.
+
+### 9. Anisotropic noise — **ACCEPT on the model; partial DEFEND on the number**
+
+- *Accept*: the numerics are anisotropic (F5), so `η_i ~ N(0,Σ)`,
+  `E‖η_i‖² = tr Σ`, `Σ = diag((0.05·std x*_1)²,…)`. Every `dσ²` in Propositions 1 and 2
+  becomes `tr Σ`, and the isotropic case is flagged as the specialisation.
+- *Accept*: the Gaussian "rule" `1 + 2logN/d` is not applicable to `N(0,Σ)` and is demoted
+  to a heuristic for the isotropic case.
+- **Defend (partial)**: you write that "the quoted *noise slack* [is] undefined or wrong
+  for the actual dataset". It is not. `compute_R003.py` computes
+  `noise_slack_factor = ‖η‖²_max / mean_i‖η_i‖²` **from the realised noise array**
+  (`eta = data[["v","w"]] − data[["v_clean","w_clean"]]`), which is a pure data statistic
+  and is indifferent to whether the noise is isotropic. It equals 4.86 → 4.9 and stands.
+  What is wrong is the *prose*, which presents 4.9 as the measured value of the
+  `1+2logN/d` rule; that rule's value is separately computed and stored as 5.6
+  (`\cnoiseslackrule`). Two different numbers were merged into one sentence. The revision
+  reports the measured ratio 4.9 as a measurement and the rule 5.6 as an isotropic
+  heuristic that the data happen to sit near, and says they are different objects.
+- *Cross term*: we agree it vanishes, and for the reason you give; I add the one case that
+  needs saying, that `η_{τ_k}` appears both as a residual noise (as the right endpoint of
+  window `k`) and as a launch noise (window `k+1`), but the two roles are in different
+  summands, and within each summand the two indices are distinct, so linearity of
+  expectation settles it term by term.
+
+### 10. `Ĵ_K` malformed — **ACCEPT**
+
+Correct on both counts: the `k` range is missing and `τ_k⁺` was defined only for removed
+nodes. I take your fix exactly: `R = {0,…,K} ∖ I_R` (with `0, K ∉ I_R`), for `r ∈ R∖{K}`
+let `r⁺ = min{q ∈ R : q > r}`, and sum over `r ∈ R∖{K}` and `t_i ∈ (τ_r, τ_{r⁺}]`. That
+definition is a partition of the `N−1` residual indices, which is the property the proof
+needs.
+
+### 11. Isolated vs consecutive removals — **ACCEPT**
+
+Correct that the claim "only data in `D_k`, `k ∈ I_R`, change predictor" is true but
+unauditable as stated. Working it out: a datum `t_i ∈ (τ_{k−1}, τ_k]` is launched, in the
+fine cost, from `τ_{k−1}`; in the coarse cost it is launched from the last *retained* node
+at or before `τ_{k−1}`. So it changes predictor iff its fine launch node `τ_{k−1}` is
+removed — i.e. exactly for `t_i ∈ ⋃_{k∈I_R} D_k` with `D_k = (τ_k, τ_{k+1}] ∩ {t_i}`.
+Your two cases are then the two readings of the half-open convention:
+
+- `τ_k` removed, `τ_{k−1}` retained ("isolated"): the datum *at* `τ_k` lies in
+  `(τ_{k−1},τ_k]`, is launched from the retained `τ_{k−1}`, keeps its predictor, and is
+  correctly **not** in `D_k`.
+- `τ_{k−1}` and `τ_k` both removed ("consecutive"): the datum at `τ_k` lies in
+  `(τ_{k−1},τ_k] = D_{k−1}`, is launched from a removed node, changes predictor, and is
+  correctly **counted**, as the right endpoint of `D_{k−1}`.
+
+So the convention is right and only the argument was missing. Added, together with the
+two facts the count needs: the `D_k`, `k ∈ I_R`, are pairwise disjoint (distinct
+half-open intervals), and `|D_k| ≤ n_max`, giving at most `n_max|I_R|` changed data.
+
+### 12. Figure 10's ΔT₁/ΔT₂ caption — **ACCEPT for panel (a); partial DEFEND for panel (b) and for G7**
+
+- *Accept (a)*: confirmed at source (F4). The fine partition is κ=1, so `ΔT₁ = Δt`
+  throughout, and the quantity that grows with the stride `m` is `ΔT₂ = (m−1)Δt` — the
+  largest distance from a removed node to the nearest retained node on its left. The
+  caption (and R002's, and the CSV column names in `02_concept.jl`) has the two swapped.
+  Corrected caption in §2, with the CSV's own labels called out so nobody re-derives the
+  error from the data file.
+- **Defend (b)**: panel (b)'s labelling is *correct*. The block experiment removes nodes
+  31…30+b, so the farthest removed node is `b·Δt` from the retained node 30 and
+  `ΔT₂ = bΔt` as the caption says. Its CSV field `DeltaT1=(b+1)Δt` is mislabelled — it is
+  the coarse span `τ_k⁺ − τ_k⁻` — but the caption does not use it.
+- **Defend (G7)**: "Re-evaluate Gate G7 using the quantities actually represented by each
+  experiment" does not apply — **G7 never touches Figure 10**. `verify_R004.py:50–54`
+  checks `exp(μs) ≤ exp(Ls)` and `(L̃/μ)(e^{μs}−1) ≤ (L̃/L)(e^{Ls}−1)` for
+  `s ∈ {1,2,5,10}`, i.e. Lemma 1 and Lemma 2 factors only. No gate is invalidated by the
+  caption error.
+- **CLARIFY, and a defect you did not find**: §7's *description* of G7 says
+  "Proposition 3 is consistent with the draft…: the exponent factors of the revised bound
+  are ≤ the draft's for every `ΔT₁,ΔT₂ ∈ {1,2,5,10}`". That is not what the gate computes
+  (it compares Lemma factors at a single `s`, never the Proposition 3 product). The bullet
+  will be rewritten to describe the gate that exists, and I will not upgrade the gate
+  inside this revision, because the gate's polarity and content are R004 artefacts.
+- One point in our favour that should be recorded: both panels remove nodes from the κ=1
+  partition, so both *are* sub-partitions and Figure 10 is a legitimate test of
+  Proposition 3 — unlike the κ-sweep (issue 3). Once the caption is fixed the figure keeps
+  its role.
+
+### 13. Corollary 1 is not a valid consequence — **ACCEPT**
+
+Correct on every sub-claim, and the last one (sub-interval vs endpoint exponents) is the
+one that actually bites, because Proposition 3 bounds `‖u_i−v_i‖` over a *prefix*
+`[τ_k, t_i]` of a window.
+
+Confirmed at source: `compute_R003.py:86–98` computes
+`Λ_k = ∫_{τ_{k−1}}^{τ_k} μ(x*(t)) dt` by trapezoid along the **true orbit**, with `μ(t)`
+the log-norm of the **linearised** `J_f(x*(t))` — i.e. the infinitesimal-perturbation
+limit at `p = p*`, windows aligned to `t_0`, whole-window endpoints only. It is not a
+supremum over a tube and it is not a sub-interval bound. Figure 2(c) shows `μ(t)` changing
+sign twice per period, so `M_k > e^{Λ_k}` strictly on FHN.
+
+The revision therefore (i) restricts Corollary 1 to the state-sensitivity statement
+(Lemma 1 / Lemma 3's `e^{μ(t_i−τ)}` factor), (ii) gives Lemma 2's correct
+variation-of-constants form `‖δ(t)‖ ≤ L̃‖Δp‖ ∫_0^t exp(∫_s^t μ(r)dr) ds` rather than any
+substitution into `(e^{μt}−1)/μ`, (iii) introduces your transition bound
+`M_k = sup_{τ_{k−1}≤a≤b≤τ_k} exp(∫_a^b μ)` with the recorded facts `M_k ≥ max{1, e^{Λ_k}}`
+and `∫_0^t exp(∫_s^t μ) ds ≤ M_k t`, so the replacements are `e^{μ⁺ΔT} → max_k M_k` and
+`(L̃/μ)(e^{μs}−1) → L̃ (max_k M_k) s`, (iv) relabels Table 2 as *linearised endpoint
+exponents along the true orbit at `p*`*, and (v) demotes the node-placement rule to a
+heuristic read off `M_k`. The weighted-norm claims move to a remark (issue 14).
+
+### 14. Weighted-norm extension omits changed constants and costs — **ACCEPT**
+
+Correct. "The same proof runs" is false for anything but Lemma 1: parameter forcing needs
+`L̃_D = sup‖D ∂_p f‖_{2←2}`, the residual lemma needs `‖Dη_i‖` (with
+`E‖Dη‖² = tr(DΣDᵀ)`, not `σ² tr(DᵀD)`, once the noise is anisotropic — issue 9), and a
+`D`-norm bound converted back to a Euclidean *squared* cost picks up the conversion factor
+squared. I take the option you left open and the one I think is right for a manuscript:
+**drop the weighted claims about `J_K` and `Ĵ_K` entirely** and keep only the weighted
+Lemma 1 statement plus the conversion `‖δ(t)‖ ≤ cond(D) e^{μ_D t}‖δ(0)‖`. Table 2's
+weighted columns then report exactly what they are and nothing more. Written as a remark
+in §2.
+
+Notation: `κ(D)` is renamed `cond(D)` because `κ` is the window size everywhere else in
+the manuscript — your issue list did not raise this but it is the same class of defect.
+
+### 15. Abstract compares quantities in different norms — **ACCEPT**
+
+Correct and checked against the tables: weighted worst window `8.04` at `ΔT=5`
+(`windows.md`), `cond(D) = 3.54`, so the Euclidean conversion is `8.04×3.54 = 28.5`; the
+*direct* Euclidean per-window worst is `34.78` at `ΔT=5` and `138.79` at `ΔT=10`; the
+measured peak `8.5` is Euclidean and is a maximum over the 24 probes of Figure 2, not a
+universal ceiling. The abstract's "`≤ 8` per window" against "never exceeds `8.5`" is a
+false comparison in three ways at once (norm, status, and quantifier). Rewritten sentence
+in §2. I also accept your second point: `8.04` is a first-order, reference-orbit endpoint
+estimate, so the word "at most" is withdrawn.
+
+### 16. Theorem 1 is conditional and does not establish basin tracking — **ACCEPT**
+
+Correct: the premise assumes what a displacement theorem is meant to help establish, and
+`Δ_K(p̂^{(K)})` on the right makes it implicit. Two changes:
+
+- Relabel as *a posteriori, conditional*, and make the right-hand side explicit by
+  replacing `Δ_K(p^{(K)}) + Δ_K(p̂^{(K)})` with `2 sup_{q∈U} Δ_K(q)` over the assumed
+  neighbourhood.
+- Add the smallness closure as a **corollary**. I worked it through and one detail in the
+  obvious version is wrong, so I state it the honest way: the *global* minimiser of `Ĵ_K`
+  can perfectly well sit in another basin (Figure 6 shows the coarse landscape acquiring
+  minima), so nothing here can bound it. What *is* provable, and what basin retention
+  actually needs, is a statement about the minimiser of `Ĵ_K` **restricted to a ball**:
+  if `J_K` is `m`-strongly convex on `B̄ = B̄(p^{(K)}, r)` and `Δ̄ = sup_{B̄} Δ_K < m r²/4`,
+  then for `q ∈ ∂B̄`,
+  `Ĵ_K(q) ≥ J_K(q) − Δ̄ ≥ J_K(p^{(K)}) + (m/2)r² − Δ̄ ≥ Ĵ_K(p^{(K)}) + (m/2)r² − 2Δ̄ > Ĵ_K(p^{(K)})`,
+  so the minimum of `Ĵ_K` over `B̄` is attained in the interior, at a stationary point `p̂`
+  of `Ĵ_K` with `‖p̂ − p^{(K)}‖ ≤ 2√(Δ̄/m) < r`. Full statement and proof in §2.
+  The remark attached to it says what it does not say: a descent *path* cannot leave `B̄`
+  through the boundary, but Nelder–Mead's iterates are not a continuous path and can in
+  principle jump the shell, so this is a statement about the restricted problem, not a
+  guarantee about the optimiser we actually ran.
+
+### 17. Expectation version of Proposition 2 suppresses a random premise — **ACCEPT**
+
+Correct: `J_K`, `p^{(K)}`, `m` and the neighbourhood are all functions of the noise. I take
+the conservative branch you offer: the realisation-wise bound is kept as the primary
+statement, and the expectation statement is made **conditional on an explicit assumption**
+— there exist a deterministic `m > 0` and a deterministic convex `U ∋ p*` such that almost
+surely `J_K` is `m`-strongly convex on `U` and `p^{(K)} ∈ U`, with `p^{(K)}` measurable.
+Under that assumption, and only then, one may take expectations. The manuscript will say
+that this assumption is *not* verified for the FHN data (Figure 5 shows indefiniteness at
+`p*` for every κ≥2, and Figure 14(a) shows the returned iterates are positive definite in
+only 36 % of cells), so the expectation form is a modelling statement.
+
+### 18. Uniform convergence on bounded parameter sets — **ACCEPT**
+
+Correct: finite-time blow-up for bounded polynomial coefficients is not a hypothetical
+here — it is the plateau (`ms_loss` returns `1e3`), and the κ=100 landscape slices
+(Figure 7) show any positive cubic coefficient falling into it. "Uniformly on bounded sets
+of `p`" is replaced by "uniformly on `P`", the compact set of (A0) on which all solutions
+exist to `ΔT_max` and remain in `X`; `J_K` and `J_K^*` are finite and continuous there and
+the convergence follows from uniform continuity of the flow on `[0,ΔT_max] × X × P`.
+
+### 19. `p* = argmin J_K^*` asserts identifiability — **ACCEPT**
+
+Correct: `J_K^*(p*) = 0 ≤ J_K^*` gives membership, not uniqueness, and with 20 library
+coefficients fitted from one 101-sample orbit of a two-state system, non-uniqueness is the
+expected situation rather than an edge case. Changed to `p* ∈ argmin J_K^*` everywhere,
+with an explicit sentence that no persistence-of-excitation or identifiability condition
+is assumed or verified, and that all statements are about displacement between minimisers,
+not about recovering a unique `p*`.
+
+### 20. `μ₋` cannot support a global lower bound — **ACCEPT**
+
+Correct, and the arithmetic is unambiguous: the symmetric part of FHN's Jacobian is
+`[[1−v², −0.46], [−0.46, −0.064]]`, whose `λ_min → −∞` as `|v| → ∞`. The global lower
+log-norm is `−∞`; `μ₋ = −2.96` is `lognorm_lower_fine` in `compute_R003.py`, an infimum
+over the sampled true orbit only. Lemma 1's lower bound is restated over `X` of (A0), the
+constant is labelled region-restricted, and the symbols table says so. (G8 tests the lower
+bound only at probes started on the orbit, which is consistent with the restricted claim
+but is not evidence for a global one.)
+
+### 21. Numerical checks masquerading as premise validation — **ACCEPT both sub-claims; partial DEFEND on one panel**
+
+I was told to try defending the Figure 14(b) segment-monotonicity point as
+"consistent-with, not proof". Having re-read the caption, that defence fails and I withdraw
+it: the manuscript says the cost "decreases monotonically along every segment, **i.e. the
+carried guess lies inside the basin of the next minimiser**". That "i.e." is exactly the
+inference you object to. `08_post.jl:34–40` evaluates 21 points on one straight chord in
+22-dimensional `z` between consecutive minimisers; monotone decrease along one sampled
+chord is consistent with basin membership and proves nothing about it. Relabelled:
+"the carried guess and the next minimiser are joined by a sampled chord along which the
+next cost is monotonically decreasing — a necessary condition for, not a proof of, basin
+membership".
+
+Also accepted: 2,424 probe points do not verify a supremum bound (G8's description is
+softened to "no probe violates the bound"); the data-term Hessian at an approximate
+penalised optimiser does not check strong convexity of the objective on a neighbourhood
+(γ=0 vs γ=0.05, one point vs a neighbourhood, and the gradient is not verified to vanish).
+§6's title becomes "Empirical diagnostics for the premises of the theory".
+
+**Defend (partial)**, and I think this one is fair: Figure 14(a) is not presented as
+validation of anything. Its stated conclusion is that the premise is **not verified**
+(36 % of cells positive definite), the discussion repeats that "Theorem 1 explains the
+observed behaviour rather than certifying it", and §2.4's `Read this` already says the
+strong-convexity premise fails at `p*`. The manuscript's sin here is a section title and
+three verbs ("checks", "verified", "i.e."), not a claim that the diagnostics close the
+assumptions. I am relabelling the verbs; I am not conceding that the negative results were
+dressed up as positive ones.
+
+---
+
+## Section 2 — Updated artifact
+
+### 2.1 Bullet list of changes
+
+**Definitions (§2)**
+
+1. New standing assumption (A0): compact convex `X ⊂ ℝ^d` and `P ⊂ ℝ^{n_p}`, `f ∈ C¹` on a
+   neighbourhood of `X×P`, forward existence and invariance to `ΔT_max`, nodes in `X`. All
+   constants are suprema over `X×P`. [issues 4, 5, 18]
+2. One indexing convention: `N` samples `y_0,…,y_{N−1}`, `N−1` intervals, `N−1` residuals;
+   launch nodes `τ_0,…,τ_{K−1}`, record end `τ_K = t_{N−1}`, `K = ⌈(N−1)/κ⌉`. Every count
+   `N` in Propositions 1–2 becomes `N−1`. [issue 1]
+3. Noise model `η_i ~ N(0,Σ)` i.i.d., `Σ = diag(σ_1²,…,σ_d²)`, `E‖η_i‖² = tr Σ`; isotropic
+   case flagged as a specialisation; the `1+2logN/d` rule demoted to an isotropic heuristic
+   and separated from the measured 4.9. [issue 9]
+4. `p* ∈ argmin J_K^*` (membership), plus an explicit no-identifiability-claimed sentence.
+   [issue 19]
+5. `μ₋` defined as an infimum over `X`; explicit note that the global value for FHN is
+   `−∞` and that `−2.96` is an orbit measurement. [issue 20]
+6. Symbol renames: parameter dimension `m → n_p`; condition number `κ(D) → cond(D)`;
+   `m` reserved for the strong-convexity constant; `κ` reserved for the window size.
+   `ΔT` and `ΔT_1` reconciled (same object; the subscript only distinguishes partitions in
+   §4) and `ΔT_2` restated. [issues 13, 14, and a symbol clash not in your list]
+7. Monotone envelope `ρ̄_s = max{2‖η‖_max, ρ_s}` and `μ⁺ = max(μ,0)` added to the
+   notation. [issue 7]
+8. `R`, `r⁺`, `D_k` defined for the coarse cost. [issues 10, 11]
+9. §2.3 reproduces the implemented loss exactly, with elapsed-time notation, the corrected
+   index range, the `x_0`-is-a-dummy statement and the block-diagonal Hessian fact, plus a
+   term-by-term statement of what transfers to the penalised objective. [issue 2]
+10. The FULL/SHORT/DENSE/COARSE/JUMP nesting arithmetic, replacing "which is what the
+    algorithm does". [issue 3]
+
+**Statements and proofs (§3–§5)**
+
+11. Lemma 1: uniqueness sentence made explicit; suprema over `X`; lower bound restricted.
+12. Lemma 2: proof rewritten with the Dini derivative (ε-regularisation recorded as an
+    alternative, with the `|μ|ε` remainder for `μ<0`). [issue 6]
+13. Lemma 3 (residual): stated with `ρ̄`. [issue 7]
+14. Proposition 1: per-datum sums kept; collapsed forms use `μ⁺`, `N−1` and `tr Σ`.
+    [issues 1, 8, 9]
+15. Proposition 2: realisation-wise bound primary; expectation form conditional on an
+    almost-sure uniform-`m` assumption; a remark that it does not transfer to the penalised
+    objective, with the bias bound `γ/(m√n_p)`. [issues 2, 17]
+16. `Ĵ_K` redefined over `R∖{K}` with `r⁺`. [issue 10]
+17. Proposition 3: `μ⁺`, `ρ̄`, and the isolated-vs-consecutive bookkeeping written out.
+    [issues 7, 11]
+18. Theorem 1 relabelled *a posteriori, conditional*, right-hand side made explicit with
+    `sup_U Δ_K`. [issue 16]
+19. New Corollary (basin retention on a ball, with the boundary argument). [issue 16]
+20. New Corollary (general re-partition via the common refinement). [issue 3]
+21. Corollary 1 restricted to the state-sensitivity factor, with `M_k`, the
+    variation-of-constants form for the parameter lemma, and the node-placement rule
+    demoted to a heuristic. [issue 13]
+22. Weighted-norm claims moved to a remark and reduced to Lemma 1 + `cond(D)`. [issue 14]
+
+**Abstract, captions, gates (§1, §5–§7)**
+
+23. Abstract sentence rewritten with norms, status and quantifiers made explicit. [issue 15]
+24. Figure 10 caption corrected (panel (a) ΔT swap, CSV labels called out; panel (b)
+    confirmed correct; both panels noted as genuine sub-partitions). [issue 12]
+25. Figure 5, 14 captions: "data-term Hessian (γ=0) at a minimiser of the penalised cost
+    (γ=0.05)"; Figure 5(c)/14(c) relabelled as the `x_0` dummy parabola; Figure 14(b)
+    "necessary condition for, not proof of". [issues 2, 21]
+26. Table 2 caption: "linearised endpoint exponents along the true orbit at `p*`;
+    `M_k ≥ e^{Λ_k}`"; weighted columns reported as `‖·‖_D` amplification with the
+    `cond(D)` conversion. [issues 13, 14]
+27. §6 retitled "Empirical diagnostics for the premises of the theory"; G8's bullet
+    softened to "no probe violates the bound"; **G7's bullet rewritten to describe the gate
+    that actually exists** (Lemma 1/2 factors at `s ∈ {1,2,5,10}`), which the current text
+    misdescribes. [issues 12, 21]
+
+### 2.2 Corrected LaTeX
+
+#### (a) Abstract sentence [replaces the parenthetical in the abstract]
+
+```latex
+A numerical section on the FitzHugh--Nagumo system compares every bound with measurement.
+For the amplification of an initial-state error the draft's a priori factor is
+$e^{L\Delta T}=1.8\times10^{13}$ at $\Delta T=10$ and the revised one is
+$e^{\mu\Delta T}=1.2\times10^{5}$; along the true orbit the \emph{linearised endpoint}
+per-window factors are $34.8$ at $\Delta T=5$ and $139$ at $\Delta T=10$ in the Euclidean
+norm, and $8.04$ at $\Delta T=5$ in the weighted norm $\norm{Dx}$, which corresponds to the
+Euclidean statement $8.04\,\mathrm{cond}(D)=28.5$; the largest amplification
+\emph{observed} over the 24 probes of Figure~\ref{fig:lemmas} is $\npeakAmp$.
+```
+
+#### (b) §2.1 — admissible region, data, indexing, costs [replaces the first paragraph of §2.1]
+
+```latex
+\subsection{Model, flow, admissible region, data and costs}
+Consider $\dot x=f(x;p)$ with $x\in\mathbb R^{d}$ and $p\in\mathbb R^{n_p}$ (the earlier
+draft wrote $p\in\mathbb R$; nothing below uses a scalar parameter, and $n_p=20$ in the
+numerical section). $\pstar$ is the true parameter and $x^\star(t)$ the true trajectory.
+The \emph{flow} $\flow{t}{p}{x_0}$ is the solution of the initial-value problem at time
+$t$; it satisfies $\flow{t_1+t_2}{p}{x_0}=\flow{t_2}{p}{\flow{t_1}{p}{x_0}}$. In the
+analysis the flow replaces the numerical integrator, i.e.\ discretisation error is ignored.
+
+\paragraph{Standing assumption (A0): the admissible region.}
+Fix a compact \emph{convex} parameter set $P\subset\mathbb R^{n_p}$ with $\pstar\in P$, a
+compact \emph{convex} state region $X\subset\mathbb R^{d}$, and a horizon
+$\Delta T_{\max}>0$, such that
+\begin{enumerate}[nosep,label=(A0.\arabic*)]
+\item $f$ is $C^1$ on an open neighbourhood of $X\times P$;
+\item for every $x\in X$ and every $p\in P$ the solution of $\dot\xi=f(\xi;p)$,
+      $\xi(0)=x$, exists on $[0,\Delta T_{\max}]$ and satisfies $\xi(t)\in X$ there;
+\item $X$ contains every datum $y_i$ that is used as a shooting node, and
+      $\Delta T_{\max}$ is at least the longest window of any partition considered.
+\end{enumerate}
+All constants below are suprema or infima over $X\times P$. Convexity is what licenses the
+mean-value forms: the state chord $x_2+s(x_1-x_2)$ and the parameter chord
+$p_2+s(p_1-p_2)$, $s\in[0,1]$, then lie inside the region where the constants are taken.
+\readthis{(A0) is not cosmetic. For the $20$-coefficient cubic library the state Jacobian
+$J_f(x;p)$ depends on $p$ --- the coefficient of $v$ in $\dot v$ sits on its diagonal and
+shifts $\mu$ one for one --- so a constant measured at $\pstar$ certifies nothing at
+$p_{\rm wrong}$, $p^{(K)}$ or $\hat p^{(K)}$. Worse, polynomial candidates with bounded
+coefficients can blow up in finite time; the implemented loss detects this and returns the
+plateau value, so for such $p$ there is no trajectory to bound at all. The analysis is a
+statement about $P$; the numerical plateau is the boundary of $P$ made visible.
+The constants quoted in \S\ref{sec:num} are \emph{measurements along the true orbit at
+$\pstar$}, i.e.\ estimates of the suprema in (A0), not certified values of them. The one
+exception is recorded in \S\ref{sec:lemma1}: for the true FHN field $\mu$ is global in $x$
+--- but still evaluated at the single parameter $\pstar$.}
+
+\paragraph{Data and indexing (one convention throughout).}
+There are $N$ samples $y_0,\dots,y_{N-1}$ at times $t_i=t_0+i\,\Delta t$,
+$i=0,\dots,N-1$; hence $N-1$ data intervals and $N-1$ residuals. (In \S\ref{sec:num},
+$N=\nNobs$, $\Delta t=1$, $t_0=0$, $t_{N-1}=100$.) The observation model is
+\begin{equation}
+y_i=x_i+\eta_i,\qquad x_i=x^\star(t_i),\qquad
+\eta_i\stackrel{\text{i.i.d.}}{\sim}\mathcal N(0,\Sigma),\qquad
+\Sigma=\operatorname{diag}(\sigma_1^2,\dots,\sigma_d^2),
+\label{eq:noise}
+\end{equation}
+so $\mathbb E\norm{\eta_i}^2=\operatorname{tr}\Sigma$; $\norm{\eta}_{\max}=\max_i\norm{\eta_i}$.
+\readthis{the noise is \emph{anisotropic}. R002 draws component $j$ with standard
+deviation $\sigma_j=0.05\times\operatorname{std}_t x^\star_j$, so
+$\Sigma\neq\sigma^2 I_d$ and $\mathbb E\norm{\eta_i}^2=\operatorname{tr}\Sigma$, not
+$d\sigma^2$. The isotropic model $\Sigma=\sigma^2 I_d$ is the specialisation
+$\operatorname{tr}\Sigma=d\sigma^2$; all statements below are written with
+$\operatorname{tr}\Sigma$.}
+
+\paragraph{Partitions.}
+Shooting nodes are data times $\tau_0=t_0<\tau_1<\dots<\tau_{K-1}$, \emph{from which
+windows are launched}, together with the right end of the record $\tau_K=t_{N-1}$, which is
+not a launching node. Window $k$ is $(\tau_{k-1},\tau_k]$, $k=1,\dots,K$; $\tau(i)$ is the
+last node at or before $t_i$; $n_k=\#\{i:\,t_i\in(\tau_{k-1},\tau_k]\}$, so
+$\sum_{k=1}^{K}n_k=N-1$ \emph{exactly}; $n_{\max}=\max_k n_k$ and
+$\Delta T=\max_k(\tau_k-\tau_{k-1})$. For the uniform partition used in \S\ref{sec:num},
+$\tau_k=t_{k\kappa}$ for $k\le K-1$ with $K=\lceil (N-1)/\kappa\rceil$; e.g.\ $\kappa=3$,
+$N=101$ gives $K=34$, nodes at data indices $0,3,\dots,99$ and a last window
+$(t_{99},t_{100}]$ holding one datum. The costs are
+\begin{align}
+J_K(p)&=\sum_{k=1}^{K}\sum_{t_i\in(\tau_{k-1},\tau_k]}
+  \norm{\flow{t_i-\tau_{k-1}}{p}{y_{\tau_{k-1}}}-y_i}^2
+  &&\text{($K$ windows; $N-1$ terms),}\label{eq:JK}\\
+J_1(p)&=\sum_{i=1}^{N-1}\norm{\flow{t_i-t_0}{p}{y_0}-y_i}^2 &&\text{(single shooting),}\label{eq:J1}\\
+J_K^\star(p)&=\sum_{k=1}^{K}\sum_{t_i\in(\tau_{k-1},\tau_k]}
+  \norm{\flow{t_i-\tau_{k-1}}{p}{x_{\tau_{k-1}}}-x_i}^2 &&\text{(noise-free windowed cost).}
+\label{eq:JKstar}
+\end{align}
+$J_K^\star$ launches every window from the \emph{true} state and compares with the true
+state, so $J_K^\star(\pstar)=0$ and hence $\pstar\in\arg\min J_K^\star$ for every
+partition. \readthis{membership, not equality. $J_K^\star(\pstar)=0$ says $\pstar$ is
+\emph{a} minimiser; with $n_p=20$ library coefficients fitted from one $101$-sample record
+of a two-state system there may be others, and no persistence-of-excitation or
+identifiability condition is assumed or verified anywhere in this report. Every statement
+below is about the \emph{displacement between minimisers}, not about recovering a unique
+$\pstar$.} We write $p^{(K)}\in\arg\min_p J_K(p)$.
+
+\paragraph{Node removal.}
+$\mathcal I_R\subset\{1,\dots,K-1\}$ indexes the removed nodes ($\tau_0$ and $\tau_K$ are
+never removed) and $R=\{0,1,\dots,K\}\setminus\mathcal I_R$ the retained ones. For
+$r\in R\setminus\{K\}$ let $r^{+}=\min\{q\in R:\ q>r\}$ be the next retained index, and for
+$k\in\mathcal I_R$ let $\tau_k^{-}$ and $\tau_k^{+}$ be the nearest retained nodes to the
+left and to the right of $\tau_k$. $\hatJ_K$ is the cost of the coarse partition
+\eqref{eq:Jhat} and $\hat p^{(K)}$ its minimiser. $\Delta T_1=\max_k(\tau_k-\tau_{k-1})$ is
+the longest window of the \emph{fine} partition and
+$\Delta T_2=\max_{k\in\mathcal I_R}(\tau_k-\tau_k^{-})$ is the largest distance from a
+removed node to the nearest node retained to its left.
+$D_k=\{t_i:\ t_i\in(\tau_k,\tau_{k+1}]\}$ is the fine window launched at the removed node
+$\tau_k$.
+\readthis{$\Delta T$ and $\Delta T_1$ denote the same object --- the longest window of the
+partition under discussion. The subscript is used only in \S\ref{sec:removal}, where two
+partitions are in play: $\Delta T_1$ is the \emph{fine} one's longest window and
+$\Delta T_2$ is the removed-node offset, so that $\Delta T_1+\Delta T_2$ bounds a coarse
+window. The draft gave $\Delta T$ and $\Delta T_1$ textually identical definitions, which
+made $\Delta T_2$ look like a second window length; it is not.}
+```
+
+#### (c) §2.2 — constants [replaces the constants paragraph]
+
+```latex
+\subsection{Constants of the right-hand side}
+$J_f(x;p)=\partial f/\partial x$. Over the admissible region of (A0),
+\begin{equation}
+L=\sup_{X\times P}\norm{J_f(x;p)}_2,\qquad
+\tilde L=\sup_{X\times P}\norm{\partial f/\partial p}_2,\qquad
+\mu=\sup_{X\times P}\lambda_{\max}\!\Big(\tfrac12(J_f+J_f^\top)\Big),\qquad
+\mu_-=\inf_{X\times P}\lambda_{\min}\!\Big(\tfrac12(J_f+J_f^\top)\Big),
+\label{eq:mu}
+\end{equation}
+equivalently $\mu_-\norm{x-z}^2\le\langle f(x;p)-f(z;p),x-z\rangle\le\mu\norm{x-z}^2$ for
+$x,z\in X$, $p\in P$. Always $-L\le\mu_-\le\mu\le L$; unlike $L$, $\mu$ can be zero or
+negative. We write $\mu^{+}=\max(\mu,0)$.
+\readthis{$\mu_-$ is \emph{region-restricted by necessity}, not by convention. For the true
+FHN field the symmetric part of $J_f$ is
+$\begin{psmallmatrix}1-v^2&-0.46\\-0.46&-0.064\end{psmallmatrix}$, whose smallest
+eigenvalue tends to $-\infty$ as $|v|\to\infty$: the global lower logarithmic norm is
+$-\infty$ and no finite global $\mu_-$ exists. The value $\nmuLower$ quoted in
+\S\ref{sec:num} is an infimum over the sampled true orbit and certifies the lower bound of
+Lemma~\ref{lem:state} only for perturbations that remain in the region where it was
+measured. By contrast $\lambda_{\max}$ of the same matrix is maximised at $v=0$ with value
+$\nmu$ and decreases thereafter, so the \emph{upper} constant $\mu=\nmu$ is global in $x$
+for the true FHN field --- at the single parameter $\pstar$.}
+
+For a weighted norm $\norm{x}_D=\norm{Dx}$ with $D$ invertible, $\mu_D$ is the logarithmic
+norm of $DJ_fD^{-1}$ and $\mathrm{cond}(D)=\norm{D}\norm{D^{-1}}$ its condition number
+(written $\mathrm{cond}$, not $\kappa$, because $\kappa$ is the window size throughout this
+report). The \emph{local} logarithmic norm along a pair of trajectories is
+$\mu(t)=\lambda_{\max}(\tfrac12(A(t)+A(t)^\top))$ for the mean-value matrix $A(t)$ of
+\eqref{eq:proof1}; $\Lambda_k=\int_{\tau_{k-1}}^{\tau_k}\mu(s)\dd s$ is the window
+\emph{endpoint} exponent and
+\begin{equation}
+M_k=\sup_{\tau_{k-1}\le a\le b\le\tau_k}\exp\Big(\int_a^b\mu(r)\dd r\Big)\ \ge\ \max\{1,\,e^{\Lambda_k}\}
+\label{eq:Mk}
+\end{equation}
+the window \emph{transition} bound (Corollary~\ref{cor:window}). The abbreviations used in
+the residual bounds are
+\begin{equation}
+\rho_s(p)=\big(1+e^{\mu s}\big)\norm{\eta}_{\max}
+ +\frac{\tilde L}{\mu}\big(e^{\mu s}-1\big)\norm{p-\pstar},
+\qquad
+\bar\rho_s(p)=\max\big\{2\norm{\eta}_{\max},\ \rho_s(p)\big\},\qquad s\ge0,
+\label{eq:rho}
+\end{equation}
+the second being the least non-decreasing majorant of the first.
+\readthis{$\rho_s$ is \emph{not} monotone in $s$. Since
+$\partial_s\rho_s=e^{\mu s}(\mu\norm{\eta}_{\max}+\tilde L\norm{p-\pstar})$ has a sign that
+does not depend on $s$, $\rho$ is monotone on $[0,s]$ and
+$\sup_{0\le r\le s}\rho_r=\max\{\rho_0,\rho_s\}=\max\{2\norm\eta_{\max},\rho_s\}=\bar\rho_s$;
+for $\mu<0$ and $p=\pstar$ it is strictly \emph{de}creasing. Every step that bounds the
+residual of a short window by that of a longer one uses $\bar\rho$, not $\rho$. The two
+agree whenever $\mu\ge0$, which is the case for the FHN constants of \S\ref{sec:num};
+the distinction matters precisely in the dissipative case that this revision advertises as
+its qualitative gain.}
+$m>0$ denotes a strong-convexity constant of a cost near its minimiser (the draft wrote
+$\mu$ for it, and wrote $m$ for the parameter dimension; here $n_p$ is the parameter
+dimension, $m$ is the strong-convexity constant and $\mu$ is the logarithmic norm).
+```
+
+#### (d) §2.3 — the implemented objective [replaces eq. (Jkappa) and its surroundings]
+
+```latex
+The optimised cost is the normalised, sparsity-penalised version of \eqref{eq:JK}. With
+$z=[x_0;p]\in\mathbb R^{d+n_p}$ and $\tau(i)=t_{\kappa\lfloor i/\kappa\rfloor}$,
+\begin{equation}
+J_\kappa(z)=\frac1N\Big[\norm{x_0-y_0}^2
+ +\sum_{i=0}^{N-2}\big\lVert\hat x\big(t_{i+1}-\tau(i);\,p,\,y_{\tau(i)}\big)-y_{i+1}\big\rVert^2\Big]
+ +\frac{\gamma}{n_p}\sum_{j=1}^{n_p}\operatorname{smooth}\ell_1(p_j),
+\label{eq:Jkappa}
+\end{equation}
+where $\hat x(s;p,x)$ is the $S$-substep fixed-step Tsit5 approximation of
+$\flow{s}{p}{x}$, $\kappa$ is the window size in data intervals
+($K=\lceil(N-1)/\kappa\rceil$ windows launched at the data indices $0,\kappa,2\kappa,\dots$;
+$\kappa=1$ is one window per interval, $\kappa=N-1=100$ is single shooting), each interval
+is integrated with $S=10$ substeps of length $\delta t=\Delta t/S$,
+$\operatorname{smooth}\ell_1(x)=\alpha^{-1}[\log(1+e^{-\alpha x})+\log(1+e^{\alpha x})]$
+with $\alpha=500$, and $\gamma=0.05$. If a state exceeds $10^3$ in magnitude or becomes NaN
+the loss returns the constant $10^3$ (\emph{flat blow-up penalty}, a plateau with zero
+gradient); the \emph{graded} penalty returns
+$10^3(1+\tfrac{N-1-i}{N-1})+J_{\rm partial}/N$ when the blow-up occurs at index $i$.
+The theory checks use $\gamma=0$.
+
+\readthis{$x_0$ is a \emph{dummy} in \eqref{eq:Jkappa}. The implementation overwrites the
+running state with the datum $y_{\tau(i)}$ whenever $i\equiv0\pmod\kappa$, and $i=0$
+satisfies this for \emph{every} $\kappa$, so the first integration step already starts from
+$y_0$ and $x_0$ never enters an integrator --- not even at $\kappa=N-1$. Its only
+appearance is the term $\norm{x_0-y_0}^2/N$, whose minimiser is $x_0=y_0$ and whose
+Hessian block is $(2/N)I_d$ \emph{independently of $\kappa$}. Consequently
+(i) the optimisation is effectively over $p$ with $d$ inert coordinates carried along;
+(ii) the Hessian of \eqref{eq:Jkappa} in $z$ is block diagonal,
+$\operatorname{diag}\big((2/N)I_d,\ \nabla^2_p J_\kappa\big)$, so strong convexity in $z$ is
+equivalent to strong convexity in $p$; and (iii) the ``sensitivity to $v_0$'' panel of
+Figure~\ref{fig:hessian} is exactly the parabola $\Delta v_0^2/N$, which is why it is the
+same shallow parabola at every window size. The multiple-shooting formulation of
+\eqref{eq:JK} --- node states fixed at the data, not optimised --- is what the code
+implements; the free $x_0$ is vestigial.}
+
+\begin{remark}[what transfers from $J_K$ to the implemented objective]\label{rem:impl}
+Write $J^{\rm impl}_\kappa(z)=\frac1N\big[\norm{x_0-y_0}^2+J_K(p)\big]+\frac{\gamma}{n_p}
+\sum_j\operatorname{smooth}\ell_1(p_j)$, the exact content of \eqref{eq:Jkappa} up to
+discretisation. The first and third terms do not depend on the partition. Hence:
+\begin{enumerate}[nosep,label=(\roman*)]
+\item $\hatJ^{\rm impl}_\kappa-J^{\rm impl}_\kappa=\tfrac1N\big(\hatJ_K-J_K\big)$, so
+Proposition~\ref{prop:removal} holds verbatim for the implemented objective with
+$\Delta_K$ replaced by $\Delta_K/N$, and Theorem~\ref{thm:main} and
+Corollaries~\ref{cor:basin}--\ref{cor:repartition} hold with the same substitution
+\emph{provided $m$ is a strong-convexity constant of the penalised cost}.
+\item Proposition~\ref{prop:perr} does \emph{not} transfer. Its comparator $\pstar$
+minimises $J_K^\star$ but is not a minimiser of $J_K+\text{penalty}$: if $p^{\rm pen}$
+minimises the penalised cost and $J_K/N$ is $m$-strongly convex near its own minimiser
+$p^{(K)}$, then
+$\norm{p^{\rm pen}-p^{(K)}}\le\frac{1}{m}\big\lVert\nabla_p\tfrac{\gamma}{n_p}\sum_j
+\operatorname{smooth}\ell_1(p_j)\big\rVert\le\frac{\gamma}{m\sqrt{n_p}}$, a shrinkage bias
+that must be added to any statement about $\norm{\pstar-\cdot}$. This is the shrinkage
+visible in Figure~\ref{fig:coef}.
+\item Curvature diagnostics computed with $\gamma=0$ are diagnostics of the \emph{data
+term}, not of the optimised objective; see Figures~\ref{fig:hessian} and \ref{fig:post}.
+\item The blow-up replacement is outside the analysis entirely: where it fires, the
+candidate $p$ is outside the set $P$ of (A0) and there is no trajectory to bound.
+\end{enumerate}
+\end{remark}
+```
+
+#### (e) §2.3 — schedules: the nesting correction [replaces "\emph{Arms.}" schedule text and §4's claim]
+
+```latex
+\readthis{the sweep schedules are in general \emph{not} nested, so the stages of
+Algorithm~\ref{alg:gp} are \emph{not} node removals. The nodes used at window size $\kappa$
+are the data indices $\{0,\kappa,2\kappa,\dots\}$, so the stage $\kappa_a\to\kappa_b$ is a
+node removal if and only if $\kappa_a$ divides $\kappa_b$. In the FULL schedule
+$\{1,2,3,4,5,6,8,10,12,15,20,25,33,50,75,100\}$ exactly one of the $15$ transitions
+($1\to2$) is nested; in DENSE ($44$ stages) exactly one of $43$; in SHORT
+$\{1,2,5,10,25,50,100\}$ four of six ($1\to2$, $5\to10$, $25\to50$, $50\to100$);
+COARSE $\{1,5,25,100\}$ and JUMP $\{1,100\}$ are nested throughout. Proposition~\ref{prop:removal}
+and Theorem~\ref{thm:main} as stated therefore cover only the nested stages --- and, awkwardly,
+the fully nested schedules are the ones that perform \emph{worst}
+(Table~\ref{tab:T2}: DENSE $\nschedDense$, COARSE $\nschedCoarse$, JUMP $\nschedJump$).
+The general case is covered by Corollary~\ref{cor:repartition}, which compares two
+arbitrary partitions through their common refinement. The earlier version of this
+manuscript asserted that the sub-partition hypothesis ``is what the algorithm does''; that
+assertion was false and is withdrawn.}
+```
+
+#### (f) Lemma 1 [proof sentence made explicit]
+
+```latex
+\begin{lemma}[flow sensitivity to the initial state; \rev{revised}]\label{lem:state}
+Assume (A0). For all $t\in[0,\Delta T_{\max}]$, $p\in P$ and $x_1,x_2\in X$,
+\begin{equation}
+e^{\mu_- t}\norm{x_1-x_2}\ \le\ \norm{\flow{t}{p}{x_1}-\flow{t}{p}{x_2}}\ \le\ e^{\mu t}\norm{x_1-x_2}.
+\label{eq:lemma1}
+\end{equation}
+In particular, since $\mu\le L$ and $\mu_-\ge-L$, the draft's bounds
+$e^{-Lt}\norm{x_1-x_2}\le\norm\cdot\le e^{Lt}\norm{x_1-x_2}$ hold.
+\end{lemma}
+\begin{proof}
+Let $\hat x_j(t)=\flow{t}{p}{x_j}$ and $\delta=\hat x_1-\hat x_2$, so
+$\dot\delta=f(\hat x_1;p)-f(\hat x_2;p)$ with $\delta(0)=x_1-x_2$. By (A0.1) and convexity
+of $X$ the segment $\hat x_2+s\delta$, $s\in[0,1]$, lies in $X$, so the mean-value form
+$f(\hat x_1;p)-f(\hat x_2;p)=A(t)\delta$ with $A(t)=\int_0^1J_f(\hat x_2+s\delta;p)\dd s$
+is valid, and
+\begin{equation}
+\tfrac12\tfrac{\dd}{\dd t}\norm\delta^2=\langle\delta,A(t)\delta\rangle
+ =\big\langle\delta,\tfrac12(A+A^\top)\delta\big\rangle\in\big[\mu_-\norm\delta^2,\ \mu\norm\delta^2\big].
+\label{eq:proof1}
+\end{equation}
+If $x_1=x_2$ both sides of \eqref{eq:lemma1} vanish. If $x_1\ne x_2$ then $\delta(t)\ne0$
+for all $t$: two solutions of the \emph{same} initial-value problem with the same parameter
+that agree at one time agree at all times by uniqueness (guaranteed by (A0.1)), so
+$\delta(t_\ast)=0$ would force $\delta\equiv0$ and contradict $\delta(0)\ne0$. On the set
+$\{\delta\neq0\}$, $\norm\delta$ is differentiable and \eqref{eq:proof1} gives
+$\mu_-\norm\delta\le\tfrac{\dd}{\dd t}\norm\delta\le\mu\norm\delta$; Gr\"onwall's
+inequality applied in both directions gives \eqref{eq:lemma1}.
+\end{proof}
+```
+
+#### (g) Lemma 2 [proof rewritten: Dini derivative]
+
+```latex
+\begin{lemma}[flow sensitivity to the parameters; \rev{revised}]\label{lem:param}
+Assume (A0). For all $t\in[0,\Delta T_{\max}]$, $x_0\in X$ and $p_1,p_2\in P$,
+\begin{equation}
+\norm{\flow{t}{p_1}{x_0}-\flow{t}{p_2}{x_0}}\ \le\ \frac{\tilde L}{\mu}\big(e^{\mu t}-1\big)\norm{p_1-p_2},
+\label{eq:lemma2}
+\end{equation}
+the right-hand side being read as $\tilde L\,t\norm{p_1-p_2}$ when $\mu=0$ and as
+$\frac{\tilde L}{|\mu|}\big(1-e^{-|\mu|t}\big)\norm{p_1-p_2}\le\frac{\tilde L}{|\mu|}\norm{p_1-p_2}$
+when $\mu<0$.
+\end{lemma}
+\begin{proof}
+Let $\hat x_j(t)=\flow{t}{p_j}{x_0}$ and $\delta=\hat x_1-\hat x_2$, so $\delta(0)=0$ and
+\[
+\dot\delta=\underbrace{\big[f(\hat x_1;p_1)-f(\hat x_2;p_1)\big]}_{\text{state difference, equal parameter}}
++\underbrace{\big[f(\hat x_2;p_1)-f(\hat x_2;p_2)\big]}_{\text{parameter difference, equal state}} .
+\]
+By (A0) and convexity of $X$ and $P$, the first bracket equals $A(t)\delta$ with $A$ as in
+\eqref{eq:proof1} and the second has norm at most $\tilde L\norm{p_1-p_2}$.
+
+\emph{The differential inequality, including at the zeros of $\delta$.} Here $\delta(0)=0$
+and, unlike in Lemma~\ref{lem:state}, uniqueness does \emph{not} exclude later zeros: two
+trajectories with different parameters may meet at $t>0$ without coinciding. We therefore
+work with the upper right Dini derivative
+$D^{+}\phi(t)=\limsup_{h\downarrow0}\big(\phi(t+h)-\phi(t)\big)/h$ of $\phi=\norm\delta$.
+\begin{itemize}[nosep]
+\item If $\delta(t)\ne0$ then $\phi$ is differentiable at $t$ and
+$D^{+}\phi=\dot\phi=\langle\delta,\dot\delta\rangle/\norm\delta
+\le\mu\norm\delta+\tilde L\norm{p_1-p_2}$ by \eqref{eq:proof1} and Cauchy--Schwarz on the
+second bracket.
+\item If $\delta(t)=0$ then $\hat x_1(t)=\hat x_2(t)=:\bar x$ and
+$\phi(t+h)=\norm{h\dot\delta(t)+o(h)}$, so
+$D^{+}\phi(t)=\norm{\dot\delta(t)}=\norm{f(\bar x;p_1)-f(\bar x;p_2)}\le\tilde L\norm{p_1-p_2}
+=\mu\,\phi(t)+\tilde L\norm{p_1-p_2}$.
+\end{itemize}
+Hence $D^{+}\norm\delta\le\mu\norm\delta+\tilde L\norm{p_1-p_2}$ on all of
+$[0,\Delta T_{\max}]$. The comparison lemma for Dini derivatives (any continuous $\phi$
+with $D^{+}\phi\le a\phi+b$ and $\phi(0)=\phi_0$ satisfies
+$\phi(t)\le e^{at}\phi_0+\tfrac{b}{a}(e^{at}-1)$) with $\phi_0=0$ gives \eqref{eq:lemma2}.
+\end{proof}
+\emph{Alternative (regularisation).} With $\phi_\varepsilon=(\norm\delta^2+\varepsilon^2)^{1/2}\ge\varepsilon>0$
+one has $\dot\phi_\varepsilon=\langle\delta,\dot\delta\rangle/\phi_\varepsilon
+\le\mu\norm\delta^2/\phi_\varepsilon+\tilde L\norm{p_1-p_2}$, and since
+$\norm\delta^2/\phi_\varepsilon=\phi_\varepsilon-\varepsilon^2/\phi_\varepsilon\in[\phi_\varepsilon-\varepsilon,\phi_\varepsilon]$,
+$\dot\phi_\varepsilon\le\mu\phi_\varepsilon+\tilde L\norm{p_1-p_2}+|\mu|\varepsilon$;
+Gr\"onwall and $\varepsilon\downarrow0$ give the same conclusion. (The remainder
+$|\mu|\varepsilon$ is needed only when $\mu<0$.)
+\emph{What changed.} Only the first bracket's bound, $L\to\mu$, plus the removal of the
+division by $\norm\delta$ at $\delta=0$, which the draft's argument performed silently at
+$t=0$, where $\delta$ vanishes by construction.
+```
+
+#### (h) Lemma 3 (largest residual of a window) with $\bar\rho$
+
+```latex
+\begin{lemma}[largest residual of a window; \rev{revised}]\label{lem:residual}
+Assume (A0). Let $\tau$ be a node with $y_\tau\in X$, let $s\in(0,\Delta T_{\max}]$ and let
+$t_i\in(\tau,\tau+s]$. Then, with $\sigma_i=t_i-\tau$,
+\begin{equation}
+\norm{\flow{\sigma_i}{p}{y_\tau}-y_i}\ \le\
+e^{\mu\sigma_i}\norm{\eta_\tau}+\norm{\flow{\sigma_i}{p}{x_\tau}-x_i}+\norm{\eta_i}
+\ \le\ \rho_{\sigma_i}(p)\ \le\ \bar\rho_s(p).
+\label{eq:residual}
+\end{equation}
+\end{lemma}
+\begin{proof}
+Split
+$\flow{\sigma_i}{p}{y_\tau}-y_i=\big[\flow{\sigma_i}{p}{y_\tau}-\flow{\sigma_i}{p}{x_\tau}\big]
++\big[\flow{\sigma_i}{p}{x_\tau}-x_i\big]-\eta_i$ and apply the triangle inequality.
+Lemma~\ref{lem:state} bounds the first bracket by $e^{\mu\sigma_i}\norm{\eta_\tau}$; since
+$x_i=\flow{\sigma_i}{\pstar}{x_\tau}$, Lemma~\ref{lem:param} bounds the second by
+$\frac{\tilde L}{\mu}(e^{\mu\sigma_i}-1)\norm{p-\pstar}$. With
+$\norm{\eta_\tau},\norm{\eta_i}\le\norm\eta_{\max}$ this is $\rho_{\sigma_i}(p)$. Finally
+$\sigma_i\le s$ and $\bar\rho_s=\sup_{0\le r\le s}\rho_r$ by \eqref{eq:rho}, so
+$\rho_{\sigma_i}\le\bar\rho_s$. \readthis{the last step is \emph{not} monotonicity of
+$\rho$, which fails for $\mu<0$; it is the definition of the envelope $\bar\rho$.}
+\end{proof}
+```
+
+#### (i) Proposition 1 (cost at the true parameter)
+
+```latex
+\begin{proposition}[cost at the true parameter; \rev{revised}]\label{prop:cost}
+Assume (A0) and \eqref{eq:noise}. For any partition with longest window $\Delta T$ and
+$n_k$ data in window $k$ (so $\sum_k n_k=N-1$),
+\begin{align}
+J_K(p)&\le\sum_{k=1}^{K}\sum_{t_i\in(\tau_{k-1},\tau_k]}
+ \Big(e^{\mu(t_i-\tau_{k-1})}\norm{\eta_{\tau_{k-1}}}
+ +\norm{\flow{t_i-\tau_{k-1}}{p}{x_{\tau_{k-1}}}-x_i}+\norm{\eta_i}\Big)^2,\label{eq:JK_bound}\\
+J_K(\pstar)&\le\norm{\eta}_{\max}^2\sum_{k=1}^{K}\sum_{j=1}^{n_k}\big(1+e^{\mu j\Delta t}\big)^2
+ \ \le\ (N-1)\,\norm{\eta}_{\max}^2\big(1+e^{\mu^{+}\Delta T}\big)^2,\label{eq:JK_true}\\
+\mathbb E\,J_K(\pstar)&\le\operatorname{tr}\Sigma\sum_{k=1}^{K}\sum_{j=1}^{n_k}\big(1+e^{2\mu j\Delta t}\big)
+ \ \le\ (N-1)\operatorname{tr}\Sigma\big(1+e^{2\mu^{+}\Delta T}\big).\label{eq:JK_expect}
+\end{align}
+As $\Sigma\to0$, $J_K(p)\to J_K^\star(p)$ uniformly on $P$, and $J_K^\star(\pstar)=0$. For
+single shooting the same argument gives
+$J_1(p)\le\sum_{i=1}^{N-1}\big(e^{\mu(t_i-t_0)}\norm{\eta_0}
++\norm{\flow{t_i-t_0}{p}{x_0}-x_i}+\norm{\eta_i}\big)^2$, in which the initial-condition
+error is amplified over the whole record.
+\end{proposition}
+\begin{proof}
+\eqref{eq:JK_bound} is \eqref{eq:residual} squared and summed. At $\pstar$ the middle term
+vanishes and the $j$-th datum of a window sits at $t_i-\tau_{k-1}=j\Delta t$, which gives
+the first inequality of \eqref{eq:JK_true}. For the second, $j\Delta t\le\Delta T$ and
+$e^{\mu j\Delta t}\le e^{\mu^{+}\Delta T}$ in both cases: if $\mu\ge0$ because
+$\mu j\Delta t\le\mu\Delta T=\mu^{+}\Delta T$, and if $\mu<0$ because
+$e^{\mu j\Delta t}\le1=e^{\mu^{+}\Delta T}$; $\sum_k n_k=N-1$ gives the count.
+For \eqref{eq:JK_expect}, expand $\norm{u-\eta_i}^2=\norm u^2-2\langle u,\eta_i\rangle+\norm{\eta_i}^2$
+with $u=\flow{t_i-\tau_{k-1}}{\pstar}{y_{\tau_{k-1}}}-x_i$, which is a function of
+$\eta_{\tau_{k-1}}$ alone. Since $t_i\in(\tau_{k-1},\tau_k]$ we have $t_i\ne\tau_{k-1}$, so
+the two noise vectors are independent and $\mathbb E\eta_i=0$ makes the cross term vanish
+\emph{termwise}; this is unaffected by the fact that $\eta_{\tau_k}$ appears both as a
+residual noise in window $k$ and as a launch noise in window $k+1$, since those are
+different summands. Finally $\mathbb E\norm{\eta_i}^2=\operatorname{tr}\Sigma$ and
+$\mathbb E\norm u^2\le e^{2\mu j\Delta t}\mathbb E\norm{\eta_{\tau_{k-1}}}^2
+=e^{2\mu j\Delta t}\operatorname{tr}\Sigma$ by Lemma~\ref{lem:state}. The collapsed form
+uses $e^{2\mu j\Delta t}\le e^{2\mu^{+}\Delta T}$ as above. Uniform convergence on $P$
+follows from uniform continuity of $(t,x,p)\mapsto\flow{t}{p}{x}$ on the compact
+$[0,\Delta T_{\max}]\times X\times P$ granted by (A0).
+\end{proof}
+\emph{What changed.} Four things. (i) $L\to\mu$. (ii) The draft applied the worst-case
+factor $e^{L\Delta T}$ to every datum in the window; \eqref{eq:JK_true} keeps the actual
+offset $j\Delta t$, and the geometric sum $\sum_{j\le n_k}e^{2\mu j\Delta t}$ saves a
+factor of order $\mu\Delta T$ relative to $n_ke^{2\mu\Delta T}$ when $\mu>0$. (iii) The
+draft replaced every $\norm{\eta_i}$ by $\norm\eta_{\max}$; \eqref{eq:JK_expect} replaces it
+by $\operatorname{tr}\Sigma$, the cross term vanishing in expectation. On the FHN data the
+realised ratio $\norm\eta_{\max}^2/\big(\tfrac1N\sum_i\norm{\eta_i}^2\big)$ is
+$\nnoiseSlack$ (a direct measurement from the residual array; the isotropic Gaussian
+heuristic $1+2\log N/d$ would give $\cnoiseslackrule$, a different quantity that the data
+happen to sit near, and which does not apply to the anisotropic $\Sigma$ of
+\eqref{eq:noise}). (iv) The collapsed bounds now carry $\mu^{+}$ and $N-1$: for
+$\mu\le0$ they read $4(N-1)\norm\eta_{\max}^2$ and $2(N-1)\operatorname{tr}\Sigma$, whereas
+the draft's $e^{\mu\Delta T}$ form reversed the inequality.
+```
+
+#### (j) Proposition 2 (displacement from the truth)
+
+```latex
+\begin{proposition}[displacement of the minimiser from the truth]\label{prop:perr}
+Suppose $J_K$ is strongly convex with constant $m>0$ on a convex set $U$ containing
+$p^{(K)}$ and $\pstar$, i.e.\ $J_K(q)\ge J_K(p^{(K)})+\tfrac m2\norm{q-p^{(K)}}^2$ on $U$.
+Then, realisation by realisation,
+\begin{equation}
+\norm{\pstar-p^{(K)}}\ \le\ \sqrt{\frac2m\Big(J_K(\pstar)-J_K(p^{(K)})\Big)}
+\ \le\ \sqrt{\frac2m\Big((N-1)\norm\eta_{\max}^2\big(1+e^{\mu^{+}\Delta T}\big)^2-J_K(p^{(K)})\Big)}.
+\label{eq:perr}
+\end{equation}
+If in addition
+\begin{enumerate}[nosep,label=(A\arabic*)]
+\setcounter{enumi}{1}
+\item there exist a \emph{deterministic} $m>0$ and a \emph{deterministic} convex
+$U\ni\pstar$ such that, almost surely, $J_K$ is $m$-strongly convex on $U$ and
+$p^{(K)}\in U$, and $p^{(K)}$ is measurable,
+\end{enumerate}
+then taking expectations is legitimate and
+$\mathbb E\norm{\pstar-p^{(K)}}^2\le\tfrac2m\big((N-1)\operatorname{tr}\Sigma(1+e^{2\mu^{+}\Delta T})
+-\mathbb E J_K(p^{(K)})\big)$. For single shooting,
+$\norm{\pstar-p^{(1)}}\le\sqrt{\tfrac2m\big(\sum_{i=1}^{N-1}(e^{\mu(t_i-t_0)}\norm{\eta_0}
++\norm{\eta_i})^2-J_1(p^{(1)})\big)}$.
+\end{proposition}
+\begin{proof}
+The gradient vanishes at the minimiser, so strong convexity at $q=\pstar$ gives the first
+bound; Proposition~\ref{prop:cost} gives the second. Under (A2) the pointwise inequality
+holds on a set of probability one with a common constant and a common neighbourhood, so
+expectations may be taken on both sides.
+\end{proof}
+\readthis{(A2) is an assumption about the \emph{noise-dependent} objects $J_K$, $p^{(K)}$,
+$m$ and $U$, and it is \emph{not} verified for the FHN data. Figure~\ref{fig:hessian}
+shows the noisy cost is indefinite at $\pstar$ for every $\kappa\ge2$, and
+Figure~\ref{fig:post}(a) shows the points a derivative-free optimiser returns are
+positive definite in only $\nfracPD$ of the (seed, $\kappa$) cells. Without (A2) the
+expectation form is a modelling statement, not a consequence of \eqref{eq:perr}. Note also
+Remark~\ref{rem:impl}(ii): this proposition compares with $\pstar$, and therefore does not
+apply to the penalised objective actually optimised, whose minimiser is displaced from
+$p^{(K)}$ by up to $\gamma/(m\sqrt{n_p})$.}
+```
+
+#### (k) The coarse cost $\hatJ_K$
+
+```latex
+With $R=\{0,\dots,K\}\setminus\mathcal I_R$ and $r^{+}=\min\{q\in R:q>r\}$ as in
+\S\ref{sec:defs}, the coarse cost is
+\begin{equation}
+\hatJ_K(p)=\sum_{r\in R\setminus\{K\}}\ \sum_{t_i\in(\tau_r,\tau_{r^{+}}]}
+ \norm{\flow{t_i-\tau_r}{p}{y_{\tau_r}}-y_i}^2 .
+\label{eq:Jhat}
+\end{equation}
+The intervals $(\tau_r,\tau_{r^{+}}]$, $r\in R\setminus\{K\}$, partition $(\tau_0,\tau_K]$,
+so \eqref{eq:Jhat} has the same $N-1$ residual indices as \eqref{eq:JK}; only the launching
+node of some of them changes. Every datum in a fine window $D_k$ launched at a removed node
+$\tau_k$ is now predicted from the nearest retained node to its left, $\tau_k^{-}$, through
+$\tau_k$ (Figure~\ref{fig:removal}).
+```
+
+#### (l) Proposition 3 (cost change under node removal)
+
+```latex
+\begin{proposition}[cost change under node removal; \rev{revised}]\label{prop:removal}
+Assume (A0) and let the coarse partition be a sub-partition of the fine one, i.e.\ its
+nodes are $\{\tau_r\}_{r\in R}$ with $\mathcal I_R\subset\{1,\dots,K-1\}$. With
+$\bar\rho_s$ as in \eqref{eq:rho} and $\mu^{+}=\max(\mu,0)$, for every $p\in P$,
+\begin{equation}
+\big|\hatJ_K(p)-J_K(p)\big|\ \le\
+2\,n_{\max}\,|\mathcal I_R|\;e^{\mu^{+}\Delta T_1}\;\bar\rho_{\Delta T_2}(p)\;
+\bar\rho_{\Delta T_1+\Delta T_2}(p)\ =:\ \Delta_K(p).
+\label{eq:prop_removal}
+\end{equation}
+At $p=\pstar$ this is
+$2n_{\max}|\mathcal I_R|\,e^{\mu^{+}\Delta T_1}\big(1+e^{\mu^{+}\Delta T_2}\big)
+\big(1+e^{\mu^{+}(\Delta T_1+\Delta T_2)}\big)\norm\eta_{\max}^2$, quadratic in the noise.
+\end{proposition}
+\begin{proof}
+\emph{Which data change predictor.} In $J_K$ the datum $t_i\in(\tau_{k-1},\tau_k]$ is
+launched from $\tau_{k-1}$; in $\hatJ_K$ it is launched from the last \emph{retained} node
+at or before $\tau_{k-1}$. So $t_i$ changes predictor if and only if its fine launching
+node $\tau_{k-1}$ is removed, i.e.\ exactly for
+$t_i\in\bigcup_{k\in\mathcal I_R}D_k$ with $D_k=\{t_i\in(\tau_k,\tau_{k+1}]\}$. The
+half-open convention handles the two cases that look like off-by-one errors:
+\begin{itemize}[nosep]
+\item \emph{Isolated removal} ($\tau_k$ removed, $\tau_{k-1}$ retained): the datum at time
+$\tau_k$ lies in $(\tau_{k-1},\tau_k]$, is launched from the retained $\tau_{k-1}$, keeps
+its predictor, and is correctly \emph{not} an element of $D_k$.
+\item \emph{Consecutive removals} ($\tau_{k-1}$ and $\tau_k$ both removed): the datum at
+time $\tau_k$ lies in $(\tau_{k-1},\tau_k]=D_{k-1}$, is launched from a removed node,
+\emph{does} change predictor, and is correctly counted as the right endpoint of $D_{k-1}$.
+\end{itemize}
+The sets $D_k$, $k\in\mathcal I_R$, are pairwise disjoint (distinct half-open intervals of
+the fine partition) and $|D_k|\le n_{\max}$, so at most $n_{\max}|\mathcal I_R|$ data change
+predictor.
+
+\emph{The per-datum estimate.} For $t_i\in D_k$, $k\in\mathcal I_R$, put
+$u_i=\flow{t_i-\tau_k^{-}}{p}{y_{\tau_k^{-}}}$ (coarse), $v_i=\flow{t_i-\tau_k}{p}{y_{\tau_k}}$
+(fine), $a_i=\norm{u_i-y_i}$, $b_i=\norm{v_i-y_i}$. Then
+\[
+\hatJ_K(p)-J_K(p)=\sum_{k\in\mathcal I_R}\sum_{t_i\in D_k}\big(a_i^2-b_i^2\big),
+\qquad
+\big|a_i^2-b_i^2\big|=|a_i-b_i|\,(a_i+b_i)\le\norm{u_i-v_i}\,(a_i+b_i)
+\]
+by the reverse triangle inequality. By the flow property
+$u_i=\flow{t_i-\tau_k}{p}{\flow{\tau_k-\tau_k^{-}}{p}{y_{\tau_k^{-}}}}$, so
+Lemma~\ref{lem:state} gives
+$\norm{u_i-v_i}\le e^{\mu(t_i-\tau_k)}g_k\le e^{\mu^{+}\Delta T_1}g_k$ --- with $\mu^{+}$,
+because $t_i-\tau_k\le\Delta T_1$ bounds the exponent only when $\mu\ge0$, while for
+$\mu<0$ the correct majorant is $e^{0}=1$ --- where
+$g_k=\norm{\flow{\tau_k-\tau_k^{-}}{p}{y_{\tau_k^{-}}}-y_{\tau_k}}$ is the coarse residual at
+the removed node. Lemma~\ref{lem:residual} with $s=\Delta T_2$ gives
+$g_k\le\bar\rho_{\Delta T_2}(p)$. Finally $a_i$ is the residual of a window of elapsed time
+$t_i-\tau_k^{-}\le\Delta T_1+\Delta T_2$ and $b_i$ of one of elapsed time
+$t_i-\tau_k\le\Delta T_1$, so Lemma~\ref{lem:residual} and the monotonicity of
+$s\mapsto\bar\rho_s$ give $a_i+b_i\le2\bar\rho_{\Delta T_1+\Delta T_2}(p)$. Summing over at
+most $n_{\max}$ data in each of the $|\mathcal I_R|$ sets $D_k$ gives
+\eqref{eq:prop_removal}. At $p=\pstar$, $\bar\rho_s(\pstar)=\max\{2,1+e^{\mu s}\}\norm\eta_{\max}
+=(1+e^{\mu^{+}s})\norm\eta_{\max}$, which gives the displayed form.
+\end{proof}
+\emph{What changed.} (i) $L\to\mu$, and $\mu\to\mu^{+}$ wherever an exponent is enlarged to
+a window length. (ii) The draft bounded $a_i+b_i$ through
+$\norm{u_i+v_i-2y_i}\le\dots+2\max\norm{y_i}$, which injects the size of the data
+($\cynormmax$ on FHN) into the constant; bounding $a_i+b_i$ by two residuals makes the
+bound quadratic in $(\norm\eta,\norm{p-\pstar})$, as the left-hand side is, and removes a
+factor $\norm y_{\max}/\norm\eta_{\max}\approx\nattractorOverNoise$. (iii) The draft
+collapsed the sum over $t_i$ to the factor $|\mathcal I_R|$ without the number of data per
+window; $n_{\max}$ restores it. (iv) The draft's intermediate inequality carried
+$e^{2L(\Delta T_1+\Delta T_2)}$ while its statement had $e^{L(\Delta T_1+\Delta T_2)}$.
+(v) $\rho\to\bar\rho$, without which steps using ``a shorter window's residual is bounded by
+a longer window's $\rho$'' are false for $\mu<0$. The design rule survives: remove few nodes
+at a time, prefer low-noise nodes, keep $\Delta T_2$ small (Figure~\ref{fig:prop1}).
+```
+
+#### (m) Theorem 1, relabelled and made explicit
+
+```latex
+\begin{theorem}[a posteriori, conditional displacement of the minimiser under node removal;
+\rev{revised}]\label{thm:main}
+Let $p^{(K)}\in\arg\min J_K$ and $\hat p^{(K)}\in\arg\min\hatJ_K$, and suppose $J_K$ is
+strongly convex with constant $m>0$ on a convex set $U$ containing both. Then
+\begin{equation}
+\norm{\hat p^{(K)}-p^{(K)}}\ \le\
+\sqrt{\frac2m\Big(\Delta_K\big(p^{(K)}\big)+\Delta_K\big(\hat p^{(K)}\big)\Big)}
+\ \le\ \sqrt{\frac4m\,\sup_{q\in U}\Delta_K(q)},
+\label{eq:thm}
+\end{equation}
+with $\Delta_K$ from \eqref{eq:prop_removal}; each $\Delta_K(q)$ is a quadratic polynomial
+in $\norm\eta_{\max}$ and $\norm{q-\pstar}$ with coefficients
+$e^{\mu^{+}\Delta T_1}(1+e^{\mu^{+}\Delta T_2})(1+e^{\mu^{+}(\Delta T_1+\Delta T_2)})$ and
+smaller.
+\end{theorem}
+\begin{proof}
+Strong convexity at the minimiser ($\nabla J_K(p^{(K)})=0$) gives
+$\tfrac m2\norm{\hat p^{(K)}-p^{(K)}}^2\le J_K(\hat p^{(K)})-J_K(p^{(K)})$. Insert
+$\pm\hatJ_K(\hat p^{(K)})$ and $\pm\hatJ_K(p^{(K)})$:
+\[
+J_K(\hat p^{(K)})-J_K(p^{(K)})=
+\big[J_K(\hat p^{(K)})-\hatJ_K(\hat p^{(K)})\big]
++\big[\hatJ_K(\hat p^{(K)})-\hatJ_K(p^{(K)})\big]
++\big[\hatJ_K(p^{(K)})-J_K(p^{(K)})\big].
+\]
+The middle bracket is $\le0$ because $\hat p^{(K)}$ minimises $\hatJ_K$; the outer brackets
+are bounded by Proposition~\ref{prop:removal}. The second inequality in \eqref{eq:thm}
+replaces each $\Delta_K$ by its supremum over $U$.
+\end{proof}
+\readthis{this is a \emph{conditional a posteriori} estimate, not a proof that guess
+propagation stays in the right basin. It assumes what a displacement theorem is supposed to
+help establish --- that the new minimiser $\hat p^{(K)}$ already lies in the old
+strong-convexity neighbourhood --- and in its first form the right-hand side contains
+$\hat p^{(K)}$, so the inequality is implicit; the second form is explicit but needs a
+neighbourhood $U$ to be named. Corollary~\ref{cor:basin} supplies the smallness condition
+under which the premise can be dispensed with, at the price of speaking about the minimiser
+of $\hatJ_K$ \emph{restricted to a ball} rather than its global minimiser.}
+\emph{What changed.} The structure of the proof is the draft's; the bound inherits the
+improvements of Proposition~\ref{prop:removal}, so the displacement now scales like the
+noise (through $\sqrt{\Delta_K}\sim\norm\eta_{\max}$), not like
+$\sqrt{\text{noise}\times\text{attractor size}}$. The draft also mixed $L(p)$, $L(\pstar)$
+and $L_K=\max\{L(p^{(K)}),L(\hat p^{(K)})\}$ in one formula; with the constants taken over
+$X\times P$ by (A0) the distinction disappears.
+```
+
+#### (n) NEW Corollary: basin retention on a ball
+
+```latex
+\begin{corollary}[basin retention under node removal]\label{cor:basin}
+Let $r>0$ and $\bar B=\{q:\norm{q-p^{(K)}}\le r\}$. Suppose
+\begin{enumerate}[nosep,label=(B\arabic*)]
+\item $J_K$ is $m$-strongly convex on $\bar B$ with $m>0$, and $p^{(K)}\in\arg\min J_K$;
+\item $\displaystyle\bar\Delta:=\sup_{q\in\bar B}\Delta_K(q)<\frac{m r^2}{4}$.
+\end{enumerate}
+Then the minimum of $\hatJ_K$ over $\bar B$ is attained at an interior point $\hat p$, so
+$\hat p$ is a stationary point (a local minimiser) of $\hatJ_K$, and
+\begin{equation}
+\norm{\hat p-p^{(K)}}\ \le\ 2\sqrt{\frac{\bar\Delta}{m}}\ <\ r .
+\label{eq:basin}
+\end{equation}
+\end{corollary}
+\begin{proof}
+$\hatJ_K$ is continuous and $\bar B$ compact, so the minimum over $\bar B$ is attained.
+Let $q\in\partial\bar B$, i.e.\ $\norm{q-p^{(K)}}=r$. Since $\nabla J_K(p^{(K)})=0$, (B1)
+gives $J_K(q)\ge J_K(p^{(K)})+\tfrac m2r^2$. Proposition~\ref{prop:removal} gives
+$|\hatJ_K-J_K|\le\bar\Delta$ on $\bar B$, so
+\[
+\hatJ_K(q)\ \ge\ J_K(q)-\bar\Delta\ \ge\ J_K(p^{(K)})+\tfrac m2r^2-\bar\Delta
+\ \ge\ \hatJ_K(p^{(K)})+\tfrac m2r^2-2\bar\Delta\ >\ \hatJ_K(p^{(K)})
+\]
+by (B2). Hence every boundary point has strictly larger $\hatJ_K$ than the interior point
+$p^{(K)}$, so the minimiser $\hat p$ over $\bar B$ lies in the interior and
+$\nabla\hatJ_K(\hat p)=0$. For the bound, $\hat p,p^{(K)}\in\bar B$ and
+\[
+\tfrac m2\norm{\hat p-p^{(K)}}^2\le J_K(\hat p)-J_K(p^{(K)})
+=\underbrace{\big[J_K(\hat p)-\hatJ_K(\hat p)\big]}_{\le\bar\Delta}
++\underbrace{\big[\hatJ_K(\hat p)-\hatJ_K(p^{(K)})\big]}_{\le0}
++\underbrace{\big[\hatJ_K(p^{(K)})-J_K(p^{(K)})\big]}_{\le\bar\Delta}\le2\bar\Delta,
+\]
+the middle bracket being $\le0$ because $\hat p$ minimises $\hatJ_K$ over $\bar B$ and
+$p^{(K)}\in\bar B$. Thus $\norm{\hat p-p^{(K)}}\le2\sqrt{\bar\Delta/m}$, which is $<r$
+by (B2).
+\end{proof}
+\readthis{what this does and does not say. It does \emph{not} bound the \emph{global}
+minimiser of $\hatJ_K$: the coarse landscape acquires minima elsewhere as the windows grow
+(Figures~\ref{fig:gp}, \ref{fig:land1d}), and no perturbation argument can exclude a lower
+value far away. It says that the coarse problem \emph{restricted to the ball} has its
+minimiser strictly inside, at a stationary point of $\hatJ_K$ close to $p^{(K)}$ --- which
+is the object guess propagation actually chases, since the next stage is started \emph{at}
+$p^{(K)}$. A continuous descent path started at $p^{(K)}$ cannot leave $\bar B$, because
+$\hatJ_K>\hatJ_K(p^{(K)})$ on the whole boundary shell; Nelder--Mead's iterates are not a
+continuous path and can in principle jump the shell, so for the runs of \S\ref{sec:num}
+this is a statement about the restricted problem, not a guarantee about the optimiser that
+was used. Condition (B2) is a genuine smallness requirement: $\bar\Delta$ grows with
+$|\mathcal I_R|$, $n_{\max}$, $\Delta T_1$ and $\Delta T_2$, so it is the formal version of
+``remove few nodes at a time''.}
+```
+
+#### (o) NEW Corollary: general re-partition through the common refinement
+
+```latex
+\begin{corollary}[re-partition with simultaneous node additions and removals]\label{cor:repartition}
+Let $A$ and $B$ be two node sets, both containing $t_0$ and $t_{N-1}$, and let
+$C=A\cup B$ be their common refinement. Write $J_A,J_B,J_C$ for the corresponding costs
+\eqref{eq:JK}, let $\Delta T_1^{C}$ be the longest window of $C$, $n^{C}_{\max}$ the
+largest number of data in a window of $C$, and for $S\in\{A,B\}$ let $\Delta T^{S}$ be the
+longest window of $S$. Put
+\begin{equation}
+\Delta^{C\to S}(p)=2\,n^{C}_{\max}\,\big|C\setminus S\big|\;
+e^{\mu^{+}\Delta T_1^{C}}\;\bar\rho_{\Delta T^{S}}(p)\;\bar\rho_{\Delta T_1^{C}+\Delta T^{S}}(p),
+\qquad
+\Delta_{A,B}=\Delta^{C\to A}+\Delta^{C\to B}.
+\label{eq:repart}
+\end{equation}
+Then for every $p\in P$, $\big|J_A(p)-J_B(p)\big|\le\Delta_{A,B}(p)$. If moreover
+$J_A$ is $m$-strongly convex on a convex set containing $p_A\in\arg\min J_A$ and
+$p_B\in\arg\min J_B$, then
+\begin{equation}
+\norm{p_B-p_A}\ \le\ \sqrt{\frac2m\Big(\Delta_{A,B}(p_A)+\Delta_{A,B}(p_B)\Big)} ,
+\label{eq:repart_disp}
+\end{equation}
+and if instead the hypotheses of Corollary~\ref{cor:basin} hold with $J_A$, $J_B$ and
+$\Delta_{A,B}$ in place of $J_K$, $\hatJ_K$ and $\Delta_K$, the minimiser of $J_B$ over
+$\bar B(p_A,r)$ is interior and satisfies $\norm{\cdot-p_A}\le2\sqrt{\bar\Delta/m}<r$.
+\end{corollary}
+\begin{proof}
+$A\subset C$ and $B\subset C$, so $A$ is obtained from the fine partition $C$ by removing
+the nodes $C\setminus A$, and likewise for $B$; neither removed set contains the endpoints.
+Proposition~\ref{prop:removal} applied twice with fine partition $C$ therefore gives
+$|J_A-J_C|\le\Delta^{C\to A}$ and $|J_C-J_B|\le\Delta^{C\to B}$, where $\Delta T_2$ for the
+removal $C\to S$ is at most $\Delta T^{S}$, because the nearest retained node to the left of
+any removed node lies in $S$ and successive $S$-nodes are at most $\Delta T^{S}$ apart. The
+triangle inequality gives the first claim. For \eqref{eq:repart_disp}, run the proof of
+Theorem~\ref{thm:main} with $(J_K,\hatJ_K,\Delta_K)$ replaced by $(J_A,J_B,\Delta_{A,B})$:
+the only property used is the two-sided bound $|J_A-J_B|\le\Delta_{A,B}$ pointwise, plus
+$J_B(p_B)\le J_B(p_A)$. The last claim is Corollary~\ref{cor:basin} verbatim with the same
+substitution.
+\end{proof}
+\begin{remark}[the re-partition bound on this algorithm]\label{rem:repart_numbers}
+For the FULL schedule's stage $\kappa=2\to\kappa=3$ (a stage that is \emph{not} a node
+removal, see \S\ref{sec:defs}): $A=\{0,2,4,\dots,98\}$ ($50$ nodes),
+$B=\{0,3,6,\dots,99\}$ ($34$ nodes), $A\cap B=\{0,6,\dots,96\}$ ($17$ nodes), so
+$C=A\cup B$ has $67$ nodes with gaps of $1$ or $2$ data intervals:
+$\Delta T_1^{C}=2\Delta t$, $n^{C}_{\max}=2$, $|C\setminus A|=17$, $|C\setminus B|=33$,
+$\Delta T^{A}=2\Delta t$, $\Delta T^{B}=3\Delta t$. The bound is therefore driven by
+$|C\setminus A|+|C\setminus B|=50$ removed-node terms --- more than for a single clean
+removal. Corollary~\ref{cor:repartition} restores a theorem for the algorithm as run; it
+does not make its stages cheap.
+\end{remark}
+```
+
+#### (p) Corollary 1 restricted (per-window and per-subinterval exponents)
+
+```latex
+\begin{corollary}[per-window and per-subinterval exponents]\label{cor:window}
+Assume (A0) and let $\mu(t)=\lambda_{\max}\big(\tfrac12(A(t)+A(t)^\top)\big)$ for the
+mean-value matrix $A(t)$ of \eqref{eq:proof1} associated with the specific pair of
+trajectories and the specific parameter under consideration. Then
+\begin{enumerate}[nosep,label=(\roman*)]
+\item (state sensitivity, local form) for $0\le a\le b$,
+\begin{equation}
+\norm{\delta(b)}\le\exp\Big(\int_a^b\mu(r)\dd r\Big)\norm{\delta(a)},
+\qquad \delta=\flow{\cdot}{p}{x_1}-\flow{\cdot}{p}{x_2};
+\label{eq:window}
+\end{equation}
+\item (parameter sensitivity, local form) with $\delta=\flow{\cdot}{p_1}{x_0}-\flow{\cdot}{p_2}{x_0}$
+and $\delta(0)=0$,
+\begin{equation}
+\norm{\delta(t)}\ \le\ \tilde L\norm{p_1-p_2}\int_0^t\exp\Big(\int_s^t\mu(r)\dd r\Big)\dd s ;
+\label{eq:window_param}
+\end{equation}
+\item (window constants) with $M_k$ of \eqref{eq:Mk}, Lemma~\ref{lem:residual},
+Propositions~\ref{prop:cost} and \ref{prop:removal}, Theorem~\ref{thm:main} and
+Corollaries~\ref{cor:basin}--\ref{cor:repartition} hold with $e^{\mu^{+}\Delta T}$ replaced
+by $\max_k M_k$ and $\frac{\tilde L}{\mu}(e^{\mu s}-1)$ replaced by
+$\tilde L\,\big(\max_k M_k\big)\,s$, since
+$\int_0^t\exp(\int_s^t\mu)\dd s\le M_k\,t$ for $t$ inside window $k$.
+\end{enumerate}
+\end{corollary}
+\begin{proof}
+(i) is \eqref{eq:proof1} integrated between $a$ and $b$ instead of $0$ and $t$. (ii) is the
+Dini-derivative inequality $D^{+}\norm\delta\le\mu(t)\norm\delta+\tilde L\norm{p_1-p_2}$ of
+Lemma~\ref{lem:param} integrated by variation of constants. (iii) follows from
+$\exp(\int_a^b\mu)\le M_k$ for every $\tau_{k-1}\le a\le b\le\tau_k$ and from
+$M_k\ge1$ (take $a=b$).
+\end{proof}
+\readthis{three restrictions, all of which the earlier version of this corollary elided.
+\emph{First}, there is no blanket substitution of $e^{\mu\Delta T}$ by $e^{\Lambda_k}$: the
+parameter lemma's right-hand side is the integral \eqref{eq:window_param}, not
+$(e^{\Lambda_k}-1)/\mu$. \emph{Second}, the \emph{endpoint} exponent
+$\Lambda_k=\int_{\tau_{k-1}}^{\tau_k}\mu$ does not bound sub-intervals when $\mu(\cdot)$
+changes sign --- a window can contract overall after a large transient expansion --- and
+Proposition~\ref{prop:removal} needs exactly such sub-interval control, since it amplifies a
+residual from the removed node $\tau_k$ to a datum $t_i$ inside the window. The correct
+constant is the transition bound $M_k\ge\max\{1,e^{\Lambda_k}\}$, and on FHN the inequality
+is strict, because $\mu(x^\star(t))$ changes sign twice per period
+(Figure~\ref{fig:lemmas}c). \emph{Third}, $\mu(\cdot)$ depends on the pair of trajectories
+and on $p$: the values in Table~\ref{tab:windows} are computed from the linearisation
+$J_f(x^\star(t);\pstar)$ along the \emph{true} orbit at the \emph{true} parameter, i.e.\ the
+infinitesimal-perturbation limit, with windows aligned to $t_0$. They are therefore
+\emph{linearised endpoint exponents along one orbit}, not suprema over a tube of
+trajectories and not valid at another $p$. Consequently the node-placement rule below is a
+\emph{heuristic} read off $M_k$, not a proved statement.}
+For FHN the heuristic reads: keep nodes just before the fast jumps, where $\int\mu$
+accumulates, and remove them freely on the slow branches, where the linearised window
+exponents are negative. What no Gr\"onwall-type argument can deliver is the observed
+\emph{plateau} of the amplification (Figure~\ref{fig:lemmas}a): that is a property of the
+attractor and would require a contraction metric (impossible globally on a limit cycle,
+whose phase direction is neutral), a Lyapunov function, or a Floquet analysis of the
+variational equation.
+
+\begin{remark}[weighted norms: what actually transfers]\label{rem:weighted}
+Let $\norm{x}_D=\norm{Dx}$ with $D$ invertible, $\mu_D$ the logarithmic norm of
+$DJ_fD^{-1}$ over $X\times P$, and $\mathrm{cond}(D)=\norm D\norm{D^{-1}}$.
+Lemma~\ref{lem:state} holds verbatim in $\norm\cdot_D$ with $\mu_D$ in place of $\mu$, and
+converting to the Euclidean norm costs one factor of the condition number:
+$\norm{\delta(t)}\le\mathrm{cond}(D)\,e^{\mu_D t}\norm{\delta(0)}$. \emph{Nothing else
+transfers for free}: Lemma~\ref{lem:param} requires the weighted parameter constant
+$\tilde L_D=\sup_{X\times P}\norm{D\,\partial f/\partial p}_{2\leftarrow2}$;
+Lemma~\ref{lem:residual} requires the weighted noise $\norm{D\eta_i}$ with
+$\mathbb E\norm{D\eta_i}^2=\operatorname{tr}(D\Sigma D^\top)$; a cost built from
+$D$-weighted residuals has a \emph{different minimiser} from \eqref{eq:JK}; and a
+$D$-norm residual bound converted back into a statement about the Euclidean \emph{squared}
+cost picks up the conversion factor \emph{squared}. We therefore make no weighted claim
+about $J_K$, $\hatJ_K$, $p^{(K)}$ or $\hat p^{(K)}$. The weighted entries of
+Table~\ref{tab:windows} are reported as what they are: linearised endpoint amplification
+factors in $\norm\cdot_D$ along the true orbit, whose Euclidean counterpart is larger by at
+most $\mathrm{cond}(D)=\nweightS$. On FHN, $D=\mathrm{diag}(1,s)$ with
+$s=\sqrt{|J_{12}|/|J_{21}|}=\nweightS$ makes the off-diagonal entries of $DJ_fD^{-1}$ equal
+and opposite, so its symmetric part is diagonal and
+$\mu_D(x)=\max(1-v^2,-0.064)$ --- negative whenever $|v|>1$, i.e.\ on both slow branches,
+with global supremum $1$.
+\end{remark}
+```
+
+#### (q) Figure 10 caption
+
+```latex
+\caption{\textbf{Proposition~\ref{prop:removal}: node removal changes the cost by a bounded
+amount.} Both panels start from the finest partition ($\kappa=1$, every datum a node,
+$K=100$, $\gamma=0$) and \emph{remove} nodes, so both are genuine sub-partitions and both
+are within the scope of Proposition~\ref{prop:removal} --- unlike the stages of the
+$\kappa$-sweep (\S\ref{sec:defs}). (a) Keep every $m$-th node, so
+$|\mathcal I_R|=100-\lceil100/m\rceil$ nodes are removed; the fine window length is
+$\Delta T_1=\Delta t$ \emph{throughout}, and the quantity that grows with $m$ is the
+removed-node offset $\Delta T_2=(m-1)\Delta t$. (b) Remove one contiguous block of $b$ nodes
+after node 30, so $|\mathcal I_R|=b$, $\Delta T_1=\Delta t$ and $\Delta T_2=b\Delta t$
+grows. Shown for $p=\pstar$ (green), a vector $0.06$ from $\pstar$ on six coefficients
+(blue) and $p_{\rm wrong}$ of Figure~\ref{fig:single} (vermilion). $|\hatJ-J|$ grows with
+$|\mathcal I_R|$ and with $\Delta T_2$, and much faster away from $\pstar$, as the
+proposition says; the rate $e^{L\Delta T_2}$ of the draft (grey dashed in (b)) is far
+steeper than the observed growth, which saturates once the removed block spans a full fast
+excursion. \readthis{the producing script \texttt{02\_concept.jl} and the R002 caption label
+the stride experiment's growing quantity $\Delta T_1=m\Delta t$ and its fixed quantity
+$\Delta T_2=\Delta t$; under the definitions of \S\ref{sec:defs} those two are
+\emph{swapped}, and the CSV column \texttt{DeltaT1} holds the \emph{coarse} window length
+($m\Delta t$ in panel (a), $(b+1)\Delta t$ in panel (b)), not $\Delta T_1$. The caption
+above uses the manuscript's definitions; the CSV column names are not corrected in place,
+since the result file is frozen.} Inherited from R002 Figure~10.}
+```
+
+#### (r) Caption and gate-bullet edits
+
+```latex
+% Figure 14 (hessian) -- panel labels
+(a) Largest and smallest eigenvalues of the Hessian of the \emph{data term} ($\gamma=0$)
+at $\pstar$ in the $n_p=20$ parameters, and the data-term gradient norm: ...
+(b) Number of negative eigenvalues: the noisy \emph{data term} is indefinite at $\pstar$ for
+every $\kappa\ge2$ (up to $\nnNegMax$ of $20$ directions), so the strong-convexity premise of
+Proposition~\ref{prop:perr} and Theorem~\ref{thm:main} cannot hold near $\pstar$; note that
+the optimised objective additionally carries the $\gamma=0.05$ penalty, whose Hessian is not
+included here (Remark~\ref{rem:impl}(iii)).
+(c) The dependence on the free variable $x_0$: by the dummy-variable argument of
+\S\ref{sec:defs} this is exactly the parabola $\norm{x_0-y_0}^2/N$, identical at every
+$\kappa$; it is a property of the objective's parametrisation, not of the landscape.
+
+% Figure 37 (post) -- panels (a) and (b)
+(a) Smallest eigenvalue of the \emph{data-term} Hessian ($\gamma=0$) at the GP minimiser of
+the \emph{penalised} objective ($\gamma=0.05$) returned by Nelder--Mead at every stage,
+7 seeds ...: the returned point is positive definite in only $\nfracPD$ of the
+(seed, $\kappa$) cells. This is an \emph{empirical diagnostic}: it does not check strong
+convexity of the optimised objective on a neighbourhood, since it evaluates a different
+function (no penalty), at a single point rather than on a neighbourhood, at an iterate whose
+stationarity is not verified.
+(b) The next stage's cost along the straight chord from $p^{(\kappa_i)}$ to
+$p^{(\kappa_{i+1})}$ (seed 2, 21 sampled points), relative to its value at the carried
+guess: it decreases monotonically along every sampled chord, which is a \emph{necessary
+condition for}, not a proof of, the carried guess lying in the basin of the next minimiser.
+
+% Table 2 (windows) caption
+\caption{Per-window \emph{linearised endpoint} exponents $e^{\Lambda_k}$ computed from
+$J_f(x^\star(t);\pstar)$ along the true FHN orbit ($\Delta t=1$, windows aligned to $t_0$),
+Corollary~\ref{cor:window}: worst and median window, in the Euclidean norm and in the
+weighted norm $\norm{Dx}$; ``contracting'' is the share of windows with $\Lambda^D_k<0$.
+These are endpoint exponents, so the transition bound of \eqref{eq:Mk} satisfies
+$M_k\ge e^{\Lambda_k}$, strictly wherever $\mu(\cdot)$ changes sign inside the window;
+Proposition~\ref{prop:removal} needs $M_k$, not $e^{\Lambda_k}$. Weighted values are
+statements in $\norm\cdot_D$; the Euclidean counterpart is larger by at most
+$\mathrm{cond}(D)=\nweightS$ (Remark~\ref{rem:weighted}). Inherited from R003 Table~2.}
+
+% Section 6 title
+\subsection{Empirical diagnostics for the premises of the theory}\label{sec:premises}
+
+% Gate bullets G7 and G8
+\item G7: the revised \emph{lemma} constants never exceed the draft's with the FHN numbers:
+$\mu\le L$, and $e^{\mu s}\le e^{Ls}$ and $\frac{\tilde L}{\mu}(e^{\mu s}-1)\le
+\frac{\tilde L}{L}(e^{Ls}-1)$ at $s\in\{1,2,5,10\}$. \readthis{this gate compares
+Lemma~\ref{lem:state} and Lemma~\ref{lem:param} factors only. It does \emph{not} compare the
+Proposition~\ref{prop:removal} product over $(\Delta T_1,\Delta T_2)$ pairs; the earlier
+version of this bullet said it did.}
+\item G8: no probe violates the revised Lemma~\ref{lem:state}/\ref{lem:param} bounds at any
+of the $2\times2424$ probe points of R002 (recomputed from the copied CSVs).
+\readthis{this is a finite check, not a verification of the suprema in (A0); the lower-bound
+half uses the orbit-restricted $\mu_-=\nmuLower$ and the probes all start on the orbit.}
+```
+
+---
+
+## Section 3 — back to you
+
+```
+Review the updated plan and my responses to your earlier issues.
+Push back on responses where I defended poorly — name which point.
+Raise any new issues the updated plan creates. Re-issue any earlier
+issue you don't think I addressed. Same numbered format and same
+verdict line at the end:
+
+  VERDICT: APPROVED
+  VERDICT: ISSUES_REMAIN
+```

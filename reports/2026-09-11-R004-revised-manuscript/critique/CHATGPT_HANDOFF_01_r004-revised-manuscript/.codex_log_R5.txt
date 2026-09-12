@@ -1,0 +1,1391 @@
+2026-09-12T00:35:43.065827Z ERROR codex_models_manager::cache: failed to load models cache: missing field `base_instructions` at line 91 column 5
+OpenAI Codex v0.145.0
+--------
+workdir: /Users/manu_jay/git_repos/hiddenSelect
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: high
+reasoning summaries: none
+session id: 01a092c6-4d40-7280-b5a7-9509a9d6f6eb
+--------
+user
+# R5 — Claude's counterreply to GPT's round-4 critique of R004 (FINAL ROUND)
+
+Artifact under review: `reports/2026-09-11-R004-revised-manuscript/report.tex`, in the state left by
+**R2_to_gpt.md Section 2, as amended by R3_to_gpt.md Section 2, as amended by R4_to_gpt.md
+Section 2**. Those three documents, not the file on disk, are the current artifact; the `.tex` has
+still not been edited. This round amends them again. **Everything in R4's Section 2 that is not
+listed in Section 2 below stands exactly as written there**, and everything in R3's and R2's
+Section 2 not superseded by a later round likewise stands. A consolidated "final state of every
+statement" table is given at the end of Section 2 so that the revision step has one place to look.
+
+**Tally: 11 Accept, 0 Defend. All eleven carry a Clarify sub-block.**
+
+Six of the Clarify blocks extend the fix you prescribe; four withdraw something further than you
+asked; one (issue 7) **retracts a self-raised amendment I introduced in R4**, because your issue 7
+shows it was unnecessary. Where I depart from your prescribed remedy — never from your diagnosis — I
+say so:
+
+- **Issue 1.** Your reconnection recipe ("verify that every relevant numerical minimiser and
+  connecting neighbourhood lies in `int P`, and show it is also a minimiser of the restricted
+  problem") is stronger than what the theorems need, and I state the weaker sufficient hypothesis
+  instead: stationarity plus local strong convexity on a convex `U ⊆ P` is enough, because
+  `(eq:vi)` — the only optimality consequence any proof uses — follows from those two alone. I also
+  report which statements survive the localisation (Corollary 2 verbatim; Theorem 1 only in its
+  restricted form) rather than claiming "all local statements apply". And I add a second open
+  premise check **P2**, so the abstract now reports **two** unevaluated premise checks, not one.
+- **Issue 3.** Accepted and verified independently (`8c₀E²`). I add the consistency check that would
+  have caught it: at `p = p*` the collapsed bound is `c₀(1+e^{μ⁺ΔT₂})[(1+e^{μ⁺(ΔT₁+ΔT₂)}) +
+  (1+e^{μ⁺ΔT₁})]E²`, which for `μ < 0` is `2E·4E·c₀ = 8c₀E²`; the branch formula and the
+  `p = p*` evaluation must agree and did not.
+- **Issue 4.** Accepted, and I raise against myself the fact that makes the whole node-selection
+  paragraph weaker than it reads: the **exact** cost gap `Σ(a_i² − b_i²)` is observable at the *same*
+  simulation cost as the score, because `a_i` is exactly what the coarse integration returns. So the
+  score's only genuine role is where a bound uniform in `q` is needed; for ranking at the current
+  iterate it is dominated by the exact quantity. The manuscript now says so.
+- **Issue 5.** Accepted. I note the tension between your issues 4 and 5 and resolve it explicitly:
+  issue 5 asks the primary bound to be as tight as Grönwall permits, in quantities (`‖η_τ‖`, `p*`)
+  that are **not observable**; issue 4 asks the selection rule to be observable. These are different
+  objects and the manuscript now separates them by name (`r_{σ,t}` theoretical, `S(R;p)`
+  implementable) instead of pretending one is the other.
+- **Issue 6.** Accepted, and the withdrawal goes further: the R4 sentence "the confinement machinery
+  certifies *short* windows only" is itself an unearned certification claim and is withdrawn too.
+  Nothing is certified; short windows are the only ones where the indicative constants do not
+  already rule certification out.
+- **Issue 7.** Accepted, **and I retract my own R4 amendment's justification.** I proved your
+  identity: for a consecutive removed run the maximum of `h_k + w_k` is attained at the last removed
+  node and equals the coarse window spanning the run, so `Λ_R ≤` the longest coarse window and the
+  original "(all fine and coarse partitions)" horizon already covers Proposition 3. `Λ_R` survives as
+  notation only; the claim that it is a new horizon is deleted, and `(eq:DTmaxdef)` reverts to the
+  partition-based definition with an explicit reminder that the coarse partitions are among the
+  partitions under discussion.
+- **Issue 8.** Accepted, and the correct statement is worse for the manuscript than the false one in
+  a different way: for FHN the global Euclidean `μ` **is** attained at finite `‖x‖` and saturates, so
+  (A1-i) *can* be satisfied by inflating `r_X` — at which point the same `Q(ΔT_max)` that appears in
+  (A1-i) multiplies every conclusion, and the bounds are vacuous. Enlarging `r_X` buys admissibility
+  at the price of content. That is stated instead of the false monotonicity claim.
+- **Issue 10.** Accepted, and the honest consequence is stated: with `μ = \nmu > 0` on FHN the three
+  envelopes `ρ`, `ρ̄`, `ρ⁺` coincide identically, so **no experiment in this report exhibits the
+  `ρ̄` branch at all**. The motivation is given by construction (a uniformly contractive field), and
+  labelled as an illustration, not an instance drawn from §6.
+
+Arithmetic I quote is recomputed, not recalled.
+
+---
+
+## Section 1 — issue-by-issue response
+
+### 1. Restricting every minimiser to `P` changes the optimisation problem relative to the code — **ACCEPT**, with a **CLARIFY** that weakens the reconnection hypothesis and adds a second open premise check
+
+**Accept, and the separation is the right frame.** R3 introduced `p^{(K)} ∈ arg min_{p∈P} J_K(p)`
+to fix a real defect (the draft's `arg min` over `ℝ^{n_p}` guaranteed neither existence nor validity
+of the constants), and then the manuscript went on discussing the Nelder–Mead and BFGS outputs of §6
+as if they were the objects the theorems bound. They are not. `02_concept.jl` and the sweep drivers
+optimise unconstrained coefficient vectors; nothing projects onto a set, nothing tests membership of
+a set, and — as P1 already says — `P` has never been instantiated. So:
+
+- every theorem statement is about minimisers of a **constrained** problem over a compact convex `P`
+  that has not been constructed;
+- every number in §6 is an **unconstrained** iterate of a derivative-free or quasi-Newton method;
+- the two are related only by an additional hypothesis, which this report does not verify.
+
+**The withdrawal you ask for, in full.** The sentence asserting that the `γ = 0.05` shrinkage makes
+`∂P` solutions typical is withdrawn in **both** places it occurs: R3 block (B)'s `\readthis` ("the
+`ℓ_1`-type penalty makes boundary and near-boundary solutions the typical case, not an edge case")
+and R4 block (I)'s closing clause ("given that the `γ = 0.05` shrinkage makes boundary and
+near-boundary solutions typical rather than exceptional"). Your reasoning is decisive: `∂P` is not a
+set the code knows about, the shrinkage pulls coefficients toward `0` which is a statement about the
+coordinates and not about any boundary, and no relation between the two has been exhibited. The
+variational-inequality repair (`lem:vi`) is **kept** — it is strictly more general than the gradient
+condition and costs nothing — but it is now motivated as *insurance*, not as a response to a boundary
+phenomenon known to occur.
+
+**Clarify — the reconnection needs less than you prescribe, and I state what it needs exactly.**
+You ask for: construct `P`, verify every relevant numerical minimiser and connecting neighbourhood
+lies in `int P`, and show it is also a minimiser of the restricted problem. The last clause is
+stronger than the proofs need. Every proof in §4–§5 uses optimality **only** through `(eq:vi)`:
+
+> `F(q) ≥ F(p) + (m/2)‖q − p‖²` for all `q ∈ U`.
+
+`(eq:vi)` follows from `⟨∇F(p), q − p⟩ ≥ 0` on `U` plus `m`-strong convexity on `U`; and for an
+**interior stationary** point the first inequality holds with equality. So the sufficient hypothesis
+is:
+
+> **(R)** there exist a compact convex `P` satisfying (A0)–(A1) and a convex `U ⊆ P` with
+> `p_num ∈ int U`, such that `∇J_K(p_num) = 0` and `J_K` is `m`-strongly convex on `U` for some
+> `m > 0`.
+
+Under (R), `p_num` is a local minimiser of `min_{p∈P} J_K`, `(eq:vi)` holds at `p_num` on `U`, and
+the localised forms of Proposition 2, Theorem 1 and Corollary 2 apply to it. I state the survival
+honestly, statement by statement, because they do not all survive equally:
+
+- **Corollary 2 survives verbatim** with `p^{(K)} → p_num`, provided `B̄ ⊆ U`: its proof uses
+  `p^{(K)} ∈ arg min_P J_K` only through `lem:vi` applied on `B̄`, which (R) supplies. Its conclusion
+  was already a statement about the minimiser of `Ĵ_K` *restricted to a ball*, so nothing is lost.
+- **Theorem 1 survives only in its restricted form.** Its proof also needs
+  `Ĵ_K(p̂^{(K)}) ≤ Ĵ_K(p^{(K)})`, i.e. that the coarse minimiser is taken over a set containing the
+  fine one. With `p_num` merely local, the usable statement is the one over `B̄` — which is
+  `(eq:basin)` of Corollary 2. The global-minimiser version is not claimed.
+- **Proposition 2's displacement bound survives** with `(eq:vi)` at `p_num` on `U`, with `p*` in the
+  role it already has.
+- **No global-minimiser claim is made anywhere**, for either `J_K` or `Ĵ_K`, and the surrounding text
+  that read as if the theorems described the optimiser's trajectory is replaced by the conditional
+  reading above.
+
+**Clarify — a second open premise check.** (R) is a premise of exactly the kind P1 records, and it is
+no more verified than (A1): `X`, `P`, `r_X`, `diam(P)` are not instantiated, and strong convexity of
+`J_K` at the reported optima is not established (Figure 14's Hessian panels are evidence about the
+data term at particular points, not a strong-convexity certificate on a named convex `U`). It is
+therefore recorded as **P2 (premise check — NOT EVALUATED)** in the same separate list as P1, and the
+abstract reports **two** unevaluated premise checks. This is a deliberate extension of what you
+asked; if you think folding (R) into P1 is better, say so and I will merge them.
+
+### 2. The reachable-state clause of `cor:confined` is false as written — **ACCEPT**, with a **CLARIFY** on the two other places that leaned on it
+
+**Accept.** The clause says the conclusions hold with `z` replaced by any reachable state
+`φ(σ;p,z)`, "by the flow property". For the **state-sensitivity** conclusion at a *common*
+parameter the flow property really does close the argument, because
+`φ(s;p,φ(σ;p,z)) = φ(σ+s;p,z)` is a trajectory Lemma 0 has already confined. For the
+**parameter-sensitivity** conclusion it does not: `φ(s;p_1,φ(σ;p_0,z))` and `φ(s;p_2,φ(σ;p_0,z))`
+are launches from a state that Lemma 0 places within `r_X` of the orbit, not within `r'`, and
+Lemma 0's hypothesis is `‖z − x*(τ)‖ ≤ r'` with `r' < r_X` strictly forced by (A1). Nothing in the
+argument bridges that gap, and I wrote the clause as if one sentence covered both displays. It is
+deleted.
+
+**Resolution — Proposition 3 argues directly, as you prescribe.** The two objects compared at time
+`τ_k` are
+
+- the **coarse continuation** `u_i(·) = φ(· − τ_k; p, φ(w_k; p, y_{τ_k^-}))`, which by the flow
+  property is `φ(· − τ_k^-; p, y_{τ_k^-})`: a *same-parameter continuation* of a launch from
+  `y_{τ_k^-}`, and `‖y_{τ_k^-} − x*(τ_k^-)‖ ≤ r'` on `E_X`, so Lemma 0 confines it to `𝒯 ⊆ X`
+  throughout `[τ_k^-, t_i]`;
+- the **fine launch** `v_i(·) = φ(· − τ_k; p, y_{τ_k})`, with `‖y_{τ_k} − x*(τ_k)‖ ≤ r'` on `E_X`,
+  so Lemma 0 confines it to `𝒯 ⊆ X` throughout `[τ_k, t_i]`.
+
+Both are in `X` on `[τ_k, t_i]`; `X` is convex, so the chord between them is in `X`; hence
+`T_X((u_i(τ_k), p), (v_i(τ_k), p)) ≥ t_i − τ_k` and **local Lemma 1'** applies to that pair at the
+actual elapsed time, giving `‖u_i − v_i‖ ≤ e^{μ(t_i−τ_k)} g_k(p)`. No reachable-state clause, no
+parameter comparison from a reachable state, and only same-parameter confinement of each trajectory
+*separately*, each from its own admissible launch node. Written out in §2 block (C5).
+
+**Clarify — two other places leaned on the deleted clause and are fixed with it.** (i) Corollary 3
+(re-partition) is proved by two applications of Proposition 3 through the common refinement, so it
+inherits the corrected step and needs nothing further; the `\readthis` sentence in R4 block (K) that
+described its pairs as "launched from two different partitions' nodes" is accurate and stays, but the
+word "reachable" is removed from it. (ii) R4 block (K)'s envelope remark justified its confined-pair
+class by pointing at the reachable state; the class itself (*pairs whose joining chord stays in `X`*)
+is unaffected — it is defined by confinement, not by launch radius — but the justifying sentence is
+rewritten to say that confinement comes from Lemma 0 applied to each trajectory's own admissible
+launch node. §2 block (J5).
+
+### 3. Theorem 1's constant-branch algebra is wrong by a factor of two — **ACCEPT**, with a **CLARIFY** giving the consistency check that should have caught it
+
+**Accept; I recomputed it rather than taking your word.** On the branch `μ < 0` and
+`L̃δ ≤ |μ|E`, Lemma `rhobar`(v) gives `ρ̄_s = 2E` for **every** `s > 0`, so all three envelopes in
+
+`Δ_K = c₀ ρ̄_{ΔT₂}[ρ̄_{ΔT₁+ΔT₂} + ρ̄_{ΔT₁}]`, `c₀ = n_max|I_R| e^{μ⁺ΔT₁}`,
+
+equal `2E`, and `Δ_K = c₀ · 2E · (2E + 2E) = c₀ · 2E · 4E = 8c₀E²`. R4 block (J) wrote `4c₀E²`. The
+error is exactly the one you name: I collapsed the bracket as if it held one envelope rather than
+two, which is the same slip the R4 rewrite of Proposition 3 was supposed to eliminate.
+
+**Propagation, which I checked rather than assumed.** `Δ_K` appears in three downstream places:
+
+1. Theorem 1's `(eq:thm)`: `‖p̂^{(K)} − p^{(K)}‖ ≤ √((4/m) sup_U Δ_K)`; on the constant branch the
+   right-hand side is `√(32 c₀ E²/m) = 4E√(2c₀/m)`, not `4E√(c₀/m)` — a factor `√2` in the
+   displacement, not `1`.
+2. Corollary 2's smallness condition (B2), `Δ̄ := sup_{B̄} Δ_K < m r²/4`: on the constant branch this
+   reads `8c₀E² < mr²/4`, i.e. `E < (r/4)√(m/(2c₀))`. The `√2` again.
+3. Corollary 3's re-partition displacement, which carries the same `Δ` objects; same factor.
+
+**Clarify — the check that should have caught it, now stated in the manuscript.** The branch formula
+and the `p = p*` evaluation of `cor:removal_global` must agree, because `δ = 0` puts every `p*`
+evaluation on the constant branch when `μ < 0`. Lemma `rhobar`(iv) gives
+`ρ̄_s(p*) = (1 + e^{μ⁺s})E`, so at `p*`
+
+`Δ_K(p*) = c₀(1 + e^{μ⁺ΔT₂})[(1 + e^{μ⁺(ΔT₁+ΔT₂)}) + (1 + e^{μ⁺ΔT₁})] E²`,
+
+which for `μ < 0` (`μ⁺ = 0`) is `c₀ · 2 · (2 + 2) E² = 8c₀E²`. Two independent routes to the same
+number; they disagreed and I did not check. The manuscript now displays both and says they must
+agree. §2 block (E5).
+
+### 4. The proposed "usable" node-selection score is not observable — **ACCEPT**, with a **CLARIFY** that the exact gap is observable at the same cost
+
+**Accept, and the diagnosis is exact.** R4 block (H) defined
+
+`B(R;p) = Σ_{k∈R} Σ_{t_i∈D_k} e^{μ(t_i−τ_k)} g_k(R;p)[ρ_{t_i−τ_k^-(R)}(p) + ρ_{t_i−τ_k}(p)]`
+
+and called it usable because `g_k` is observable. But `ρ_s(p) = (1 + e^{μs})‖η‖_max + Q(s)‖p − p*‖`
+contains the noise sup-norm and the distance to the truth, neither of which exists in a discovery
+problem. Making one of three factors observable does not make the product observable, and I wrote
+"two usable rules" over a formula that cannot be evaluated. Withdrawn.
+
+**Resolution — the implementable score is the pre-collapse expression, as you prescribe.** For a
+proposed removal set `R` and the current iterate `p`, with `a_i = ‖φ(t_i − τ_k^-(R); p, y_{τ_k^-(R)})
+− y_i‖` (the **proposed coarse** residual) and `b_i = ‖φ(t_i − τ_k; p, y_{τ_k}) − y_i‖` (the
+**current fine** residual),
+
+`S(R;p) = Σ_{k∈R} Σ_{t_i∈D_k} e^{μ(t_i−τ_k)} g_k(R;p)(a_i + b_i) ≥ |Ĵ_K(p) − J_K(p)|`,
+
+every factor of which is computable from quantities the integrator returns — with **one** premise
+constant, `μ`, which is a deterministic constant of (A0) and is *also* not instantiated (P1). The
+manuscript says that plainly rather than calling the rule implementable without qualification: `S`
+is implementable *given a numerical value for `μ`* (or any upper bound on it, which weakens the score
+but preserves the inequality since `t_i ≥ τ_k`).
+
+**Simulation cost, stated honestly.** Evaluating `S(R;p)` needs, per removed node `k ∈ R`, one
+integration of `[τ_k^-(R), t_max(D_k)]` from `y_{τ_k^-(R)}`; that single integration yields `g_k`
+(its value at `τ_k`) and every `a_i` (its values at the data of `D_k`) as by-products. The `b_i` are
+residuals of the fine objective and are already computed by it. So: **one coarse-window integration
+per removed node**, of length `w_k + h_k`; no extra flow evaluations beyond that. Per-candidate and
+per-greedy-step accounting is issue 11.
+
+**Clarify — and this weakens my own paragraph, not yours.** The same integration that produces `a_i`
+produces `a_i² − b_i²`, so the **exact** cost gap `Ĵ_K(p) − J_K(p) = Σ_k Σ_{t_i∈D_k}(a_i² − b_i²)`
+is observable at *the same simulation cost* as the bound `S(R;p)`. For ranking removal sets at the
+current iterate, therefore, the exact gap strictly dominates the score: same cost, no slack, no `μ`.
+`S` earns its place only where the exact gap cannot be used — namely where a bound **uniform over
+`q` in a set** is needed, which is what Theorem 1 and Corollary 2 consume and what an exact
+pointwise evaluation cannot supply. The manuscript now states the rule in that order: use the exact
+gap to rank at the current iterate; use `S`, and above it the `ρ̄`-collapsed `Δ_K`, when a uniform
+statement is required. §2 block (D5).
+
+### 5. The primary bound is still not the sharpest Grönwall bound available — **ACCEPT**
+
+**Accept.** R4's primary Proposition 3 kept the per-datum *offsets* and both residual terms
+separately — the two losses of your round-3 issue 4 — but still wrote `ρ_{t_i−τ_k^-}` and
+`ρ_{t_i−τ_k}`, i.e. it substituted the **global** `‖η‖_max` for the individual `‖η_{τ_k^-}‖`,
+`‖η_{τ_k}‖`, `‖η_i‖` at the moment of stating the primary bound. Lemma 3 proves the tighter,
+datum-specific quantity one line before it is thrown away. That is a pre-emptive collapse of exactly
+the species the revision claims not to commit.
+
+**Resolution — a named per-datum residual, and the collapses as a corollary chain.** Define, for a
+sample time `σ` (a node) and a sample time `t ≥ σ` (a datum),
+
+`r_{σ,t}(p) = e^{μ(t−σ)}‖η_σ‖ + Q(t−σ)‖p − p*‖ + ‖η_t‖`,
+
+which is exactly the first inequality of Lemma 3. Then the primary statement of Proposition 3 is
+
+`|Ĵ_K(p) − J_K(p)| ≤ Σ_{k∈I_R} Σ_{t_i∈D_k} e^{μ(t_i−τ_k)} g_k(p) [ r_{τ_k^-,t_i}(p) + r_{τ_k,t_i}(p) ]`,
+
+with the node factor bounded by the same object at node resolution,
+
+`g_k(p) ≤ r_{τ_k^-,τ_k}(p) ≤ ρ_{w_k}(p)`,
+
+which is itself datum-specific (it carries `‖η_{τ_k^-}‖` and `‖η_{τ_k}‖`, not `‖η‖_max`), exactly as
+you note. The three collapses then become successive corollaries, each reversible by stepping back
+one level:
+
+1. **uniform-noise form**: `‖η_σ‖, ‖η_t‖ → ‖η‖_max` gives `r_{σ,t} ≤ ρ_{t−σ}`, hence the `ρ`-form
+   with actual offsets — this is R4's primary statement, now demoted to Corollary (a);
+2. **enlarged-offset form**: `ρ_σ ≤ ρ̄_s` for `σ ≤ s` (Lemma `rhobar`(i)) gives the per-node form
+   with `e^{μ⁺h_k}`, `ρ̄_{h_k+w_k}`, `ρ̄_{h_k}` — Corollary (b);
+3. **global form**: maxima over `k` give `Δ_K` — Corollary (c), the object Theorem 1 and
+   Corollaries 2–3 consume.
+
+Written in LaTeX in §2 block (C5), with Lemma 3 restated in the `r_{σ,t}` notation so that the two
+statements use one symbol for one quantity.
+
+**Clarify — issues 4 and 5 pull in opposite directions and the manuscript now says which is which.**
+Issue 5 demands maximal tightness in quantities (`‖η_τ‖`, `‖p − p*‖`) that a discovery problem cannot
+evaluate; issue 4 demands a rule made of quantities it can. Both are right about their own object,
+and the error in R4 was using one symbol for both. The manuscript now separates them by name and by
+role: `r_{σ,t}` and its corollary chain are the **theoretical** bound, sharpest first; `S(R;p)` of
+issue 4 is the **implementable** score, and the exact gap dominates it pointwise. Neither is claimed
+to be the other.
+
+### 6. P1 is called a failure even though it was never evaluated — **ACCEPT**, with a **CLARIFY** withdrawing the "certifies short windows" sentence too
+
+**Accept, and the distinction matters more here than anywhere else in the manuscript.** R4's P1 says
+in one breath that `X`, `P`, `r_X`, `μ(X×P)` and `L̃(X×P)` were never instantiated, that the
+displayed constants come from R002's probe box, and that (A1) has not been verified for any `κ` — and
+then labels the item **fails**. Those cannot all be true at once. A condition evaluated with
+constants from the wrong region has not been evaluated. "Not evaluated" and "fails" are different
+outcomes and the abstract inherited the wrong one.
+
+**Resolution.** P1 becomes **UNVERIFIED / NOT EVALUATED**, everywhere:
+
+- the P1 bullet is headed *premise check — **not evaluated***, and its body says: (A1) has not been
+  evaluated for any `κ`; what an evaluation would require (instantiate `r_X`; recompute `μ`, `L̃` as
+  suprema over the resulting `X × P`; fix `diam(P)`; exhibit `r' > 0` satisfying (A1-i)–(A1-ii));
+  and that indicative constants from R002's probe box suggest (A1-i) is unsatisfiable for long
+  windows at any usable tube radius;
+- the abstract sentence becomes: *"ten gates verify the inheritance (§7); two theoretical-premise
+  checks are **not evaluated** — the closure condition (A1) and the reconnection hypothesis (R) of
+  §2.1 — and indicative constants from the R002 probe box suggest (A1) fails for long windows."*
+- **every stage is described as conditional, short windows included.** There is no `κ` for which the
+  manuscript claims its statements are certified.
+
+**Clarify — the withdrawal goes one sentence further than you asked.** R4's (A1) `\readthis` item
+(iv) says "the confinement machinery of this section certifies *short* windows only". That is itself
+an unearned certification claim: nothing is certified at any window length, because the constants
+have not been computed over `X × P` at any window length. What survives is strictly weaker and is
+what the manuscript will carry: the indicative constants leave short windows as the only regime in
+which (A1-i) is not already ruled out by orders of magnitude; whether it holds there is unknown.
+Likewise "the theory supports the beginning of the schedule and is silent at its end" becomes "the
+theory is conditional throughout the schedule, and the indicative constants suggest the conditions
+are hopeless at its end". §2 block (I5).
+
+### 7. `Λ_R` is not a new horizon beyond the coarse partitions — **ACCEPT**, and I retract my own R4 amendment's justification
+
+**Accept, and I checked your identity rather than taking it.** Let a maximal run of consecutively
+removed fine nodes be `τ_{j}, τ_{j+1}, …, τ_{j+n}` with `τ_{j−1}` and `τ_{j+n+1}` retained. For
+`k` in the run, `τ_k^- = τ_{j−1}` (the nearest retained node to the left is the same for the whole
+run), so `w_k = τ_k − τ_{j−1}`, while `h_k = τ_{k+1} − τ_k` with `τ_{k+1}` the next **fine** node.
+Hence
+
+`h_k + w_k = τ_{k+1} − τ_{j−1}`, which is strictly increasing in `k` along the run,
+
+so the maximum is at `k = j+n`, where `τ_{k+1} = τ_{j+n+1}` is **retained** and
+`h_k + w_k = τ_{j+n+1} − τ_{j−1}` — precisely the **coarse window** spanning the removed run. Taking
+the max over runs, `Λ_R = ` the longest affected coarse window `≤` the longest window of the coarse
+partition. So:
+
+- the claim that `Λ_R` "is not a window of the coarse partition either" is **false** and is deleted;
+- my R4 self-raised amendment `ΔT_max ≥ Λ_R` was **unnecessary**: the original (A0) clause — `ΔT_max`
+  at least the longest window of *any partition under discussion* — already covers it, provided the
+  coarse partitions are counted among the partitions under discussion, which they must be since the
+  coarse cost `Ĵ_K` is defined on them;
+- consequently the R4 claim that the amendment "makes (A1) strictly harder" and "pushes `ΔT_max` to
+  100 even though the fine windows are 75 and 95" is also withdrawn: `ΔT_max ≥ 100` is forced by the
+  coarse window `{0,100}` in those transitions regardless, since that window is a window of a
+  partition under discussion.
+
+**Clarify — what `Λ_R` is kept for.** It remains useful as the name of the affected coarse span,
+because the terminal-transition discussion (issue 8 of round 3) contrasts it with the collapsed
+argument `ΔT₁ + ΔT₂`: `Λ_R = 100` while `ΔT₁ + ΔT₂ = 150` (FULL) and `190` (DENSE), and that gap is
+the price of collapsing `h_k` and `w_k` to independent maxima. So `Λ_R` is defined once, with the
+identity above stated as its content, and `(eq:DTmaxdef)` reverts to the partition-based form with
+the parenthetical "(the coarse partitions included)" made explicit. §2 block (G5), with the
+terminal-transition paragraph amended in block (K5).
+
+### 8. The claim that enlarging `r_X` cannot rescue (A1-i) is false in general — **ACCEPT**, with a **CLARIFY** on what happens if you do enlarge it
+
+**Accept.** R4's (A1) `\readthis` item (ii) says `μ` and `L̃` are "non-decreasing in `r_X`, and for a
+polynomial right-hand side strictly increasing", and concludes that (A1-i) is a competition a larger
+tube loses. The first half is right (suprema over a growing set), the second is false, and the
+conclusion does not follow from either. Counterexamples are immediate: for `f` affine in `x` the
+constants are independent of `X` entirely; and for FHN itself the upper logarithmic norm of
+`J_f(x;p)` in the Euclidean norm is bounded above globally — the `1 − x_1²` entry decreases without
+bound as `|x_1|` grows — so `μ(X × P)` **saturates** at a finite global value once `X` is large
+enough, and grows no further. Nor does non-decreasingness of the constants by itself establish that
+`Q(r_X)` outgrows `r_X`; that is an inequality between two growth rates and I asserted it without
+proving it for the FHN library.
+
+**Resolution.** The item is weakened to what is true without a system-specific proof: *enlarging
+`r_X` may fail to rescue (A1-i), because `μ` and `L̃` must be recomputed as suprema over the larger
+`X × P` and can grow rapidly, and `Q(ΔT_max)` depends exponentially on `μ(r_X)ΔT_max` while the
+right-hand side of (A1-i) grows only linearly in `r_X`. Whether the competition is won or lost is a
+property of the specific library and parameter set and is not settled here.* No theorem is claimed.
+
+**Clarify — and for FHN the honest answer makes the picture worse, not better.** Because FHN's
+Euclidean `μ` saturates, (A1-i) *is* satisfiable by inflating `r_X`: fix `X` large enough that
+`μ = \nmu` and `L̃ = \nLtilde` are the global values, then any `r_X > Q(ΔT_max)diam(P)` works. At
+`ΔT_max = 100` that means `r_X > 5.86·10⁵¹ · diam(P)`. Admissibility is bought — and the same
+`Q(ΔT_max)` sits inside every conclusion (`ρ`, `ρ̄`, `Δ_K`, `(eq:thm)`, (B2)), so the bounds one then
+owns are vacuous by the identical factor. The manuscript states this explicitly: the obstruction is
+not that (A1) is unsatisfiable, it is that the region on which it is satisfiable is one where the
+theory's conclusions carry no information. That is a sharper and more honest statement than the
+false monotonicity claim it replaces. §2 block (H5).
+
+### 9. Several envelope claims mishandle degenerate cases — **ACCEPT**, with a **CLARIFY** enumerating the equality cases in full
+
+**Accept, both.** (i) Lemma `rhobar`(v) says, for `μ < 0`, `ρ̄_s = 2E` *exactly when*
+`L̃δ ≤ |μ|E`. At `s = 0` that is false in the "only if" direction: `ρ_0 = 2E` identically, so
+`ρ̄_0 = 2E` for every `δ`, including `δ` arbitrarily large. The characterisation is a statement about
+`s > 0` and I stated it for `s ≥ 0`. (ii) Remark `rem:rhoplus` says `ρ̄_s = ρ⁺_s` iff `μ ≥ 0` or
+`p = p*`; equality also holds at `E = 0` and at `s = 0`.
+
+**Resolution, with the case analysis done rather than asserted.** For `μ < 0`, `s > 0`, writing
+`E = ‖η‖_max`, `δ = ‖p − p*‖`, `Q(s) = (L̃/|μ|)(1 − e^{−|μ|s}) > 0`:
+
+`ρ_s − 2E = (1 − e^{−|μ|s})(L̃δ/|μ| − E)`,
+
+whose sign is that of `L̃δ − |μ|E` and is independent of `s > 0`. Hence **(v) for `s > 0`**:
+`ρ̄_s = 2E` iff `L̃δ ≤ |μ|E`, and `ρ̄_s = ρ_s` otherwise; and separately `ρ̄_0 = ρ_0 = 2E` always. For
+the `ρ⁺` comparison with `μ < 0`: `ρ⁺_s = 2E + Q(s)δ` and `ρ̄_s = max{2E, (1+e^{μs})E + Q(s)δ}`, so
+
+- if `δ = 0`: both equal `2E`;
+- if `E = 0`: both equal `Q(s)δ`;
+- if `s = 0`: both equal `2E` (since `Q(0) = 0`);
+- otherwise (`s > 0`, `E > 0`, `δ > 0`): if `ρ_s ≥ 2E` then `ρ̄_s = (1+e^{μs})E + Q(s)δ < 2E + Q(s)δ`
+  strictly, because `e^{μs} < 1` and `E > 0`; if `ρ_s < 2E` then `ρ̄_s = 2E < 2E + Q(s)δ` strictly.
+
+So `ρ̄_s = ρ⁺_s` **iff** `μ ≥ 0` **or** `p = p*` **or** `E = 0` **or** `s = 0`, and the inequality is
+strict otherwise. Both statements are rewritten with these qualifications. §2 block (F5).
+
+**Clarify — one consequence worth flagging.** The `s = 0` case is not a curiosity here: `ρ̄_0` is the
+value the bound takes at a datum coincident with its launch node, which the half-open convention
+`D_k = {t_i ∈ (τ_k, τ_{k+1}]}` excludes from the removal sums but which appears in `g_k` when
+`w_k = 0` is formally allowed. The manuscript notes that `w_k > 0` and `h_k > 0` for every
+`k ∈ I_R` by construction (a removed node is interior and distinct from its retained neighbours),
+so the degenerate branch is never active in Proposition 3 — but the lemma is stated correctly
+anyway, since Lemma 3 is quoted elsewhere at `s ≥ 0`.
+
+### 10. Negative linearised window exponents are conflated with a negative uniform `μ` — **ACCEPT**
+
+**Accept, and this is the same error the manuscript spends a whole remark forbidding.** R4's
+`rem:rhoplus` motivates keeping `ρ̄` primary by saying the distinction "lives" where the per-window
+and weighted-norm analysis puts `μ_k < 0`, citing Table 2 (`\nfracDneg` of windows have
+`Λ^D_k < 0`). But the `ρ̄`/`ρ⁺` distinction is controlled by the **uniform one-sided Lipschitz
+constant `μ` over `X × P`** that enters the residual proof, and Table 2 reports integrated, weighted,
+*linearised endpoint* exponents along the true orbit at the true parameter — the very quantities
+Remark `rem:envelopes` gives four independent reasons not to substitute for `μ`. Citing them as an
+instance of the `μ < 0` branch is precisely the substitution the manuscript has just declared
+unlicensed, committed two pages later in its own motivating text.
+
+**Resolution.** The motivation is rewritten to use a genuinely contractive system, constructed and
+labelled as an illustration, not drawn from §6: any field with `λ_max(sym J_f(x;p)) ≤ μ < 0`
+uniformly on `X × P` — a linear `ẋ = Ax + B(p)` with `sym A ≺ 0`, or the gradient flow of a uniformly
+strongly convex potential — has `ρ̄_s = 2‖η‖_max` on the whole region `L̃‖p − p*‖ ≤ |μ|‖η‖_max`, while
+`ρ⁺_s = 2‖η‖_max + Q(s)‖p − p*‖` there, exceeding it by up to `L̃‖p − p*‖/|μ|`. That is the reason
+`ρ̄` is primary. Table 2 is not cited in that remark at all.
+
+**Clarify — the honest consequence, stated in the manuscript.** On FHN, `μ = \nmu > 0`, and for
+`μ ≥ 0` Lemma `rhobar`(v) gives `ρ = ρ̄ = ρ⁺` **identically**. So **no experiment in this report
+exhibits the `ρ̄` branch**, at `p*` or anywhere else, and §6 cannot be used as evidence for or
+against the choice. `ρ̄` is kept primary because it is never worse and is strictly better on
+contractive systems — a statement about the mathematics, with no numerical support in this report,
+and now labelled as such. §2 block (F5).
+
+### 11. The greedy cost accounting omits the number of candidates — **ACCEPT**
+
+**Accept.** R4 block (H) wrote that one greedy step "costs one integration per candidate plus a
+re-integration for every already-removed node whose predecessor changed, i.e. `O(|R|)` in the worst
+case" — which states the per-candidate recomputation cost and then reports it as the per-step cost,
+dropping the candidate count entirely. With `C` retained interior candidates and `|R|` nodes already
+removed, testing *every* candidate costs up to `C` times the per-candidate figure.
+
+**Resolution — three figures, given separately.** With `R` the current removal set and `C = |S ∖ R|
+− 2` the number of retained interior candidates:
+
+- **per candidate `c`**: `O(1)` coarse-window integrations — one integration over
+  `[τ_c^-(R∪{c}), max D_c]`, which yields `g_c` and every `a_i` for `c` — **plus** the recomputation
+  of `w_k`, `g_k` and the `a_i` of every already-removed node `k ∈ R` whose retained left neighbour
+  changes when `c` is removed. That set is empty when `c` is isolated from `R`, and is the whole
+  consecutive run to the right of `c` in the worst case: `O(|R|)`.
+- **per greedy step**: `O(C · |R|)` window integrations in the worst case (every candidate adjacent
+  to a long removed run), `O(C)` when the removals stay isolated.
+- **whole greedy schedule** of `|I_R|` removals: `O(|I_R| · C · |R|)` worst case, i.e. `O(C|I_R|²)`
+  since `|R| ≤ |I_R|`.
+
+**Clarify — caching, stated as a remark and not folded into the headline figure.** Removing a node
+`c` changes `τ_k^-` only for nodes lying in the removed run immediately to the right of `c`;
+every other candidate's contribution is unchanged and can be cached keyed by the pair
+`(τ_k^-(R), τ_k)`. With that cache, a greedy step re-evaluates only the candidates whose left
+retained neighbour changed at the previous step, which is `O(1)` candidates for isolated removals and
+the affected run otherwise — in practice far below `O(C|R|)`. The worst case above stands as stated,
+and the manuscript gives the worst case as the headline figure with caching as the remark, not the
+other way round. §2 block (D5).
+
+---
+
+## Section 2 — Updated artifact
+
+Everything in **R4_to_gpt.md Section 2** that is not listed below is **unchanged**, and everything in
+R3's and R2's Section 2 not superseded by a later round is **unchanged**. In particular R4 blocks
+(B) scope (S1)–(S4), (C) confinement time and Lemma 1', (D) Lemma 2', (L) terminal transitions
+(except the two sentences amended in block (K5) below), and (M) the withdrawn plateau sentences all
+stand as written there; R3 blocks (E) Proposition 1, (F) Proposition 2, (J) Corollary 3, (N) the
+penalty-bias remark, and the `lem:trunc`/(A2) parts of block (A) stand; R2 blocks (a) abstract
+numbers, (b) data/indexing/costs, (k) the definition of `Ĵ_K`, (q) the Figure 10 caption and (r) the
+caption and gate-bullet edits stand.
+
+### 2.1 Bullet list of changes (this round)
+
+**Scope and reconnection**
+
+1. New **Remark (reconnection)** in §2.1: the theorems are about minimisers over `P`; §6's numbers
+   are unconstrained iterates; hypothesis **(R)** (a constructed `P`, a convex `U ⊆ P`,
+   `∇J_K(p_num) = 0`, local strong convexity) is what reconnects them, with a **local minimiser
+   inequality** lemma; which statements survive the localisation is listed. No global-minimiser claim
+   is made. [issue 1]
+2. The sentence that the `γ = 0.05` shrinkage makes `∂P` solutions typical is **withdrawn** in both
+   places (R3 block (B) `\readthis`, R4 block (I) closing clause). [issue 1]
+3. New **P2 (premise check — not evaluated)**: hypothesis (R) is unverified; `P`, `X`, `r_X`,
+   `diam(P)` are not instantiated and strong convexity at the reported optima is not established.
+   [issue 1]
+
+**Statements**
+
+4. `cor:confined`: the **reachable-state clause is deleted**; Proposition 3's proof argues directly
+   from Lemma 0 applied to each of the two trajectories at its own admissible launch node, plus
+   convexity of `X`, plus local Lemma 1'. [issue 2]
+5. **Proposition 3's primary bound is per-datum in the noise**, with
+   `r_{σ,t}(p) = e^{μ(t−σ)}‖η_σ‖ + Q(t−σ)‖p − p*‖ + ‖η_t‖` and
+   `g_k ≤ r_{τ_k^-,τ_k}`; the `ρ`-form, the per-node form and the global `Δ_K` become three
+   successive corollaries. Lemma 3 restated in the same notation. [issue 5]
+6. **Theorem 1's constant branch corrected to `8c₀E²`**, and propagated to `(eq:thm)` and to
+   Corollary 2's (B2); the `p = p*` consistency check displayed. [issue 3]
+7. **Node-selection rule** restated with the **observable** score
+   `S(R;p) = Σ Σ e^{μ(t_i−τ_k)} g_k(R;p)(a_i + b_i)`; the unobservable `B(R;p)` is withdrawn; the
+   exact gap `Σ(a_i² − b_i²)` is noted as observable at the same cost and as the right object for
+   ranking at the current iterate; costs given per candidate, per greedy step and per schedule, with
+   caching as a remark. [issues 4, 11]
+8. **Lemma `rhobar`(v)** restricted to `s > 0` with `ρ̄_0 = 2E` stated separately; **`rem:rhoplus`**
+   equality cases corrected to `μ ≥ 0` or `p = p*` or `E = 0` or `s = 0`; the `ρ̄` motivation
+   rewritten around a uniformly contractive field and **Table 2 no longer cited**; the statement that
+   §6 exhibits no `ρ̄` branch at all added. [issues 9, 10]
+9. **`Λ_R`** demoted to notation for the affected coarse span, with the identity `Λ_R =` longest
+   affected coarse window proved; the "new horizon" claim and the `ΔT_max ≥ Λ_R` amendment's
+   necessity are **withdrawn**; `(eq:DTmaxdef)` reverts to the partition-based form with "(coarse
+   partitions included)" explicit. [issue 7]
+10. **(A1) item (ii)** (enlarging `r_X`) weakened to "may fail — constants must be recomputed and can
+    grow"; the strictly-increasing claim deleted; the FHN saturation observation and the
+    "admissible but vacuous" consequence added. [issue 8]
+11. **P1 relabelled NOT EVALUATED**; the abstract reports two unevaluated premise checks and the
+    indicative-constant reading; the "certifies short windows only" and "supports the beginning of
+    the schedule" sentences withdrawn; every stage described as conditional. [issue 6]
+12. Consequential substitutions: every occurrence of `B(R;p)` becomes `S(R;p)`; every `4c₀E²` becomes
+    `8c₀E²`; every citation of the reachable-state clause is removed. [issues 3, 4, 2]
+
+### 2.2 Corrected LaTeX
+
+#### (A5) §2.1 — reconnection to the unconstrained computation, and the withdrawn shrinkage sentence [adds a lemma and a remark after R3 block (B); replaces the last sentence of R3 block (B)'s `\readthis` and the closing clause of R4 block (I)]
+
+```latex
+\begin{lemma}[local minimiser inequality]\label{lem:vi_local}
+Let $U\subseteq\mathbb R^{n_p}$ be convex, $F$ differentiable on a neighbourhood of $U$, and let
+$p\in U$ satisfy either $\nabla F(p)=0$, or $\langle\nabla F(p),q-p\rangle\ge0$ for all $q\in U$.
+If $F$ is $m$-strongly convex on $U$ then
+\begin{equation}
+F(q)\ \ge\ F(p)+\tfrac m2\norm{q-p}^2\qquad\text{for all }q\in U .
+\label{eq:vi_local}
+\end{equation}
+\end{lemma}
+\begin{proof}
+Strong convexity on $U$ gives $F(q)\ge F(p)+\langle\nabla F(p),q-p\rangle+\tfrac m2\norm{q-p}^2$;
+the hypothesis makes the middle term non-negative.
+\end{proof}
+
+\begin{remark}[reconnection to the unconstrained computation]\label{rem:reconnect}
+The statements of \S\ref{sec:lemmas}--\S\ref{sec:removal} concern minimisers of the
+\emph{constrained} problems \eqref{eq:minimisers}, taken over the compact convex $P$ of (A0). The
+runs reported in \S\ref{sec:num} solve \emph{unconstrained} problems: Nelder--Mead and BFGS over
+$p\in\mathbb R^{n_p}$, with no projection, no feasibility test, and no instantiation of $P$
+anywhere in the implementation. A point $p_{\rm num}$ returned by such a run is therefore
+\emph{not}, without further hypotheses, one of the objects any theorem below bounds.
+
+What reconnects them is the following hypothesis, which is \emph{not} verified anywhere in this
+report (premise check P2, \S\ref{sec:prov}):
+\begin{quote}
+\textbf{(R)} There exist a compact convex $P$ satisfying (A0)--(A1) and a convex $U\subseteq P$ with
+$p_{\rm num}\in\operatorname{int}U$, such that $\nabla J_K(p_{\rm num})=0$ and $J_K$ is
+$m$-strongly convex on $U$ for some $m>0$.
+\end{quote}
+Under (R), Lemma~\ref{lem:vi_local} gives \eqref{eq:vi_local} at $p=p_{\rm num}$ on $U$, which is
+the \emph{only} consequence of optimality used in
+Proposition~\ref{prop:perr}, Theorem~\ref{thm:main} and Corollaries~\ref{cor:basin} and
+\ref{cor:repartition}; and $p_{\rm num}$ is a local minimiser of $\min_{p\in P}J_K$. Consequently,
+under (R):
+\begin{enumerate}[nosep,label=(\roman*)]
+\item Corollary~\ref{cor:basin} holds verbatim with $p^{(K)}$ replaced by $p_{\rm num}$, provided
+$\bar B\subseteq U$: its proof uses $p^{(K)}\in\arg\min_P J_K$ only through Lemma~\ref{lem:vi} on
+$\bar B$, and \eqref{eq:vi_local} supplies exactly that.
+\item Proposition~\ref{prop:perr}'s displacement bound holds with $p_{\rm num}$ in place of
+$p^{(K)}$ for $q\in U$.
+\item Theorem~\ref{thm:main} holds in its \emph{restricted} form only. Its proof also requires
+$\hatJ_K(\hat p)\le\hatJ_K(p_{\rm num})$, i.e.\ that the coarse minimiser be taken over a set
+containing $p_{\rm num}$; with $p_{\rm num}$ merely a local minimiser the usable statement is
+\eqref{eq:basin} of Corollary~\ref{cor:basin}, over $\bar B$.
+\end{enumerate}
+\readthis{no claim is made that $p_{\rm num}$ is a \emph{global} minimiser of $J_K$ over $P$, nor
+that the minimisers of $\hatJ_K$ found in \S\ref{sec:num} are global. (R) is stronger than what
+\S\ref{sec:num} establishes and weaker than what a fully rigorous reconnection would need: it does
+not require exhibiting $P$ explicitly, only its existence together with the local convexity, but it
+does require both, and neither has been checked. The displacement, basin-retention and penalty-bias
+statements below should therefore be read as \emph{conditional on (R)} whenever they are applied to
+a number reported in \S\ref{sec:num}.}
+\end{remark}
+
+% --- replaces the last sentence of the \readthis of the minimiser-convention paragraph
+%     ("... and the $\ell_1$-type penalty makes boundary and near-boundary solutions the
+%      typical case, not an edge case.") ---
+With \eqref{eq:vi} every one of those proofs holds verbatim for minimisers on $\partial P$ and no
+minimiser is required to be interior. \readthis{this is adopted as \emph{insurance}, not as a
+response to a boundary phenomenon known to occur. An earlier version of this paragraph asserted that
+the $\gamma=0.05$ shrinkage makes boundary and near-boundary solutions typical; that claim is
+withdrawn. The shrinkage pulls coefficients towards $0$, which is a statement about coordinates, not
+about $\partial P$; $P$ has never been instantiated, so nothing is known about where its boundary is
+or whether any reported solution is near it. The variational inequality is used because it is never
+weaker than $\nabla J_K=0$ and costs nothing, and interiority is needed in exactly one place ---
+the stationarity sentence of Corollary~\ref{cor:basin} --- where it is obtained from (B0) rather
+than assumed.}
+```
+
+#### (B5) `cor:confined` — the reachable-state clause deleted [replaces the last sentence of the statement, the last sentence of the proof, and the last sentence of the `\readthis` of R4 block (E)]
+
+```latex
+% --- statement: DELETE the sentence
+%     "The same conclusions hold with $z$ replaced by any state reachable as ... by the flow
+%      property."
+%     and replace it by: ---
+If moreover $\sigma+s\le S$, then $\flow{s}{p}{\flow{\sigma}{p}{z}}=\flow{\sigma+s}{p}{z}$ is one of
+the trajectories already confined above, so \eqref{eq:conf_state} applies to any \emph{pair} of such
+same-parameter continuations. No statement is made about \eqref{eq:conf_param} for launches from a
+reachable state.
+
+% --- proof: replaces the last sentence ---
+The final sentence is the flow property together with the confinement already established: the
+continuation is the same trajectory, re-based.
+
+% --- \readthis: replaces the sentence beginning "The clause about reachable states is what
+%     Proposition~\ref{prop:removal} needs ..." ---
+\readthis{\S\ref{sec:lemmas}--\S\ref{sec:removal} cite \emph{this corollary}, never
+Lemmas~\ref{lem:state}/\ref{lem:param} directly; the lemmas are local and their hypothesis
+$t\le T_X$ is discharged once and for all here. An earlier version of this corollary added a blanket
+clause asserting that all conclusions --- including the parameter-sensitivity estimate
+\eqref{eq:conf_param} --- survive replacing $z$ by any reachable state $\flow{\sigma}{p_0}{z}$.
+That is \emph{false as stated}: the flow property confines a continuation under the \emph{same}
+parameter, but $\flow{s}{p_1}{\flow{\sigma}{p_0}{z}}$ and $\flow{s}{p_2}{\flow{\sigma}{p_0}{z}}$ for
+$p_1\ne p_2$ are launches from a state that Lemma~\ref{lem:noescape} places within $r_X$ --- not
+within $r'$ --- of the orbit, which is not a hypothesis this corollary has. The clause is withdrawn;
+Proposition~\ref{prop:removal} does not need it, and argues directly instead (see its proof).}
+```
+
+#### (C5) Proposition 3 — per-datum primary bound, corrected admissibility step, and the corollary chain [replaces R4 block (G) in full]
+
+```latex
+% --- notation, placed with \eqref{eq:rho} in \S2.2 ---
+For a launch time $\sigma$ and a datum time $t\ge\sigma$ with $t-\sigma\le\Delta T_{\max}$, write
+\begin{equation}
+r_{\sigma,t}(p)\ =\ e^{\mu(t-\sigma)}\norm{\eta_\sigma}+Q(t-\sigma)\norm{p-\pstar}+\norm{\eta_t},
+\label{eq:rdatum}
+\end{equation}
+the \emph{per-datum residual bound}: it carries the noise realised at the launch node and at the
+datum, not the global $\norm\eta_{\max}$. Replacing both by $\norm\eta_{\max}$ gives
+$r_{\sigma,t}(p)\le\rho_{t-\sigma}(p)$, and Lemma~\ref{lem:residual} is exactly the statement
+$\norm{\flow{t-\sigma}{p}{y_\sigma}-y_t}\le r_{\sigma,t}(p)\le\rho_{t-\sigma}(p)\le\bar\rho_s(p)$
+for $t-\sigma\le s$.
+
+\begin{proposition}[cost change under node removal, per datum; \rev{revised}]\label{prop:removal}
+\emph{Scope (S3).} Assume (A0)--(A2) and work on $E_X$. Let the coarse partition be a sub-partition
+of the fine one, with removed indices $\mathcal I_R\subset\{1,\dots,K-1\}$. For $k\in\mathcal I_R$
+put
+\[
+h_k=\tau_{k+1}-\tau_k,\qquad w_k=\tau_k-\tau_k^{-},\qquad
+D_k=\{t_i\in(\tau_k,\tau_{k+1}]\},\qquad
+g_k(p)=\big\lVert\flow{w_k}{p}{y_{\tau_k^{-}}}-y_{\tau_k}\big\rVert ,
+\]
+where $\tau_k^{-}$ is the nearest \emph{retained} node to the left of $\tau_k$. Then for every
+$p\in P$
+\begin{equation}
+\big|\hatJ_K(p)-J_K(p)\big|\ \le\
+\sum_{k\in\mathcal I_R}\ \sum_{t_i\in D_k}
+e^{\mu(t_i-\tau_k)}\;g_k(p)\;\Big[r_{\tau_k^{-},t_i}(p)+r_{\tau_k,t_i}(p)\Big],
+\label{eq:prop_removal_datum}
+\end{equation}
+and the node factor obeys
+\begin{equation}
+g_k(p)\ \le\ r_{\tau_k^{-},\tau_k}(p)
+\ =\ e^{\mu w_k}\norm{\eta_{\tau_k^{-}}}+Q(w_k)\norm{p-\pstar}+\norm{\eta_{\tau_k}}
+\ \le\ \rho_{w_k}(p).
+\label{eq:gk}
+\end{equation}
+\end{proposition}
+\begin{proof}
+\emph{Which data change predictor.} In $J_K$ the datum $t_i\in(\tau_{k-1},\tau_k]$ is launched from
+$\tau_{k-1}$; in $\hatJ_K$ from the last \emph{retained} node at or before $\tau_{k-1}$. So $t_i$
+changes predictor iff its fine launching node is removed, i.e.\ exactly for
+$t_i\in\bigcup_{k\in\mathcal I_R}D_k$. The half-open convention handles the two apparent off-by-one
+cases: with $\tau_k$ removed and $\tau_{k-1}$ retained, the datum at time $\tau_k$ lies in
+$(\tau_{k-1},\tau_k]$, keeps its predictor, and is correctly \emph{not} in $D_k$; with $\tau_{k-1}$
+and $\tau_k$ both removed, the datum at $\tau_k$ lies in $D_{k-1}$, does change predictor, and is
+correctly counted there. The $D_k$ are pairwise disjoint.
+
+\emph{Admissibility of every flow evaluation, argued pairwise.} Fix $k\in\mathcal I_R$ and
+$t_i\in D_k$, and put
+\[
+u_i=\flow{t_i-\tau_k^{-}}{p}{y_{\tau_k^{-}}},\qquad
+v_i=\flow{t_i-\tau_k}{p}{y_{\tau_k}},\qquad
+a_i=\norm{u_i-y_i},\qquad b_i=\norm{v_i-y_i}.
+\]
+On $E_X$ we have $\norm{y_{\tau_k^{-}}-x^\star(\tau_k^{-})}\le r'$ and
+$\norm{y_{\tau_k}-x^\star(\tau_k)}\le r'$, so Lemma~\ref{lem:noescape} applies to each launch
+\emph{separately}: the trajectory $s\mapsto\flow{s}{p}{y_{\tau_k^{-}}}$ lies in
+$\mathcal T\subseteq X$ for $s\le t_i-\tau_k^{-}\le\Delta T_{\max}$, and
+$s\mapsto\flow{s}{p}{y_{\tau_k}}$ lies in $\mathcal T\subseteq X$ for $s\le t_i-\tau_k$. By the flow
+property the first of these is the coarse continuation
+$\flow{s-\tau_k}{p}{\flow{w_k}{p}{y_{\tau_k^{-}}}}$ for $s\ge\tau_k$ --- a \emph{same-parameter}
+continuation, which is why no statement about launches from reachable states is needed. Both
+trajectories therefore lie in $X$ on $[\tau_k,t_i]$ and, $X$ being convex, so does the chord joining
+them at each time; hence
+$T_X\big((\flow{w_k}{p}{y_{\tau_k^{-}}},p),(y_{\tau_k},p)\big)\ge t_i-\tau_k$ and
+Lemma~\ref{lem:state} applies to that pair on $[0,t_i-\tau_k]$.
+
+\emph{The per-datum estimate.} $\hatJ_K-J_K=\sum_{k\in\mathcal I_R}\sum_{t_i\in D_k}(a_i^2-b_i^2)$
+and $|a_i^2-b_i^2|\le\norm{u_i-v_i}(a_i+b_i)$. Lemma~\ref{lem:state} at the \emph{actual} elapsed
+time gives
+\[
+\norm{u_i-v_i}\ \le\ e^{\mu(t_i-\tau_k)}\,\big\lVert\flow{w_k}{p}{y_{\tau_k^{-}}}-y_{\tau_k}\big\rVert
+\ =\ e^{\mu(t_i-\tau_k)}g_k(p),
+\]
+with the actual $\mu$ and no enlargement of the exponent, hence no monotonicity requirement and no
+$\mu^{+}$. Lemma~\ref{lem:residual} applied at node $\tau_k^{-}$ and datum $t_i$ gives
+$a_i\le r_{\tau_k^{-},t_i}(p)$, and at node $\tau_k$ and datum $t_i$ gives
+$b_i\le r_{\tau_k,t_i}(p)$ --- each at its own elapsed time and with its own realised noise, so
+neither an envelope nor the global $\norm\eta_{\max}$ is needed. Summing gives
+\eqref{eq:prop_removal_datum}. \eqref{eq:gk} is Lemma~\ref{lem:residual} applied to the single datum
+$y_{\tau_k}$ launched from $y_{\tau_k^{-}}$ over elapsed time $w_k$.
+\end{proof}
+
+\begin{corollary}[uniform-noise form]\label{cor:removal_rho}
+Under the hypotheses of Proposition~\ref{prop:removal}, replacing every realised noise norm by
+$\norm\eta_{\max}$,
+\begin{equation}
+\big|\hatJ_K(p)-J_K(p)\big|\ \le\
+\sum_{k\in\mathcal I_R}\ \sum_{t_i\in D_k}
+e^{\mu(t_i-\tau_k)}\;g_k(p)\;\Big[\rho_{t_i-\tau_k^{-}}(p)+\rho_{t_i-\tau_k}(p)\Big].
+\label{eq:prop_removal_node}
+\end{equation}
+\end{corollary}
+\begin{proof}
+$r_{\sigma,t}\le\rho_{t-\sigma}$ by \eqref{eq:rdatum} and $\norm{\eta_\bullet}\le\norm\eta_{\max}$.
+\end{proof}
+
+\begin{corollary}[per-node form]\label{cor:removal_node}
+Under the same hypotheses,
+\begin{equation}
+\big|\hatJ_K(p)-J_K(p)\big|\ \le\
+\sum_{k\in\mathcal I_R}|D_k|\;e^{\mu^{+}h_k}\;g_k(p)\;
+\Big[\bar\rho_{h_k+w_k}(p)+\bar\rho_{h_k}(p)\Big].
+\label{eq:prop_removal_pernode}
+\end{equation}
+\end{corollary}
+\begin{proof}
+For $t_i\in D_k$: $t_i-\tau_k\le h_k$, so $e^{\mu(t_i-\tau_k)}\le e^{\mu^{+}h_k}$ (with $\mu^{+}$,
+because for $\mu<0$ the correct majorant of $e^{\mu(t_i-\tau_k)}$ over $t_i-\tau_k\in[0,h_k]$ is
+$e^{0}=1$); $t_i-\tau_k^{-}\le h_k+w_k$ and $t_i-\tau_k\le h_k$, so
+$\rho_{t_i-\tau_k^{-}}\le\bar\rho_{h_k+w_k}$ and $\rho_{t_i-\tau_k}\le\bar\rho_{h_k}$ by
+Lemma~\ref{lem:rhobar}(i). The inner sum has $|D_k|$ terms.
+\end{proof}
+
+\begin{corollary}[collapsed form]\label{cor:removal_global}
+Under the same hypotheses, with $n_{\max}=\max_{k\in\mathcal I_R}|D_k|$,
+$\Delta T_1=\max_k(\tau_k-\tau_{k-1})$ over the fine partition and
+$\Delta T_2=\max_{k\in\mathcal I_R}w_k$,
+\begin{equation}
+\big|\hatJ_K(p)-J_K(p)\big|\ \le\
+n_{\max}\,|\mathcal I_R|\;e^{\mu^{+}\Delta T_1}\;\bar\rho_{\Delta T_2}(p)\;
+\Big[\bar\rho_{\Delta T_1+\Delta T_2}(p)+\bar\rho_{\Delta T_1}(p)\Big]\ =:\ \Delta_K(p).
+\label{eq:prop_removal}
+\end{equation}
+At $p=\pstar$ this is
+$n_{\max}|\mathcal I_R|e^{\mu^{+}\Delta T_1}\big(1+e^{\mu^{+}\Delta T_2}\big)
+\big[\big(1+e^{\mu^{+}(\Delta T_1+\Delta T_2)}\big)+\big(1+e^{\mu^{+}\Delta T_1}\big)\big]
+\norm\eta_{\max}^{2}$, quadratic in the noise. Moreover $\Delta_K$ is non-decreasing in
+$\delta=\norm{p-\pstar}$, so $\sup_{q\in U}\Delta_K(q)=\Delta_K$ evaluated at
+$\delta=R_U:=\sup_{q\in U}\norm{q-\pstar}$.
+\end{corollary}
+\begin{proof}
+$h_k\le\Delta T_1$, $w_k\le\Delta T_2$, $|D_k|\le n_{\max}$,
+$g_k\le\rho_{w_k}\le\bar\rho_{\Delta T_2}$ by \eqref{eq:gk} and Lemma~\ref{lem:rhobar}(i), and
+$\bar\rho_{h_k+w_k}\le\bar\rho_{\Delta T_1+\Delta T_2}$, $\bar\rho_{h_k}\le\bar\rho_{\Delta T_1}$ by
+Lemma~\ref{lem:rhobar}(ii); the sum has $|\mathcal I_R|$ terms. The value at $\pstar$ is
+Lemma~\ref{lem:rhobar}(iv) and the monotonicity in $\delta$ is Lemma~\ref{lem:rhobar}(iii).
+\end{proof}
+\readthis{four levels, each obtained from the one above by a single named enlargement, and each
+reversible by stepping back.
+\emph{(a)} \eqref{eq:prop_removal_datum} is the sharpest statement the Gr\"onwall machinery of
+\S\ref{sec:lemmas} supports: the actual $\mu$, the actual per-datum offsets, the two residual terms
+kept separately, and the \emph{realised} noise at each launch node and each datum rather than the
+global $\norm\eta_{\max}$. It is a theoretical bound, not an evaluable one: $\norm{\eta_\sigma}$ and
+$\pstar$ are unknown in a discovery problem. The evaluable object is the score of
+\eqref{eq:score} below, which is a different thing and is not claimed to be this one.
+\emph{(b)} \eqref{eq:prop_removal_node} substitutes $\norm\eta_{\max}$ for realised noise;
+\eqref{eq:prop_removal_pernode} enlarges the elapsed times; \eqref{eq:prop_removal} maximises over
+$k$. A previous revision stated \eqref{eq:prop_removal_node} as the primary bound, which discarded
+level (a) silently.
+\emph{(c)} \eqref{eq:prop_removal} is the form used in Theorem~\ref{thm:main} and
+Corollaries~\ref{cor:basin}--\ref{cor:repartition}, because those need a bound \emph{uniform over
+$q$ in a set}; it contains $|\mathcal I_R|$ but not \emph{which} nodes, and the global
+$\norm\eta_{\max}$ but not the noise at any particular node.
+\emph{(d)} By Lemma~\ref{lem:rhobar}(v), $\Delta_K$ is \emph{piecewise} quadratic in
+$(\norm\eta_{\max},\delta)$, the branch switching on the sign of
+$\tilde L\delta-|\mu|\norm\eta_{\max}$ when $\mu<0$ and being the single quadratic branch throughout
+when $\mu\ge0$; see \eqref{eq:DeltaK_quad}.}
+```
+
+#### (D5) The node-selection rule, observable score and honest costs [replaces R4 block (H) in full]
+
+```latex
+\paragraph{Node selection: what is computable, and what it costs.}
+For a proposed removal set $R$ (a subset of the interior fine nodes) write $\tau_k^{-}(R)$ for the
+nearest node of $S\setminus R$ to the left of $\tau_k$, $w_k(R)=\tau_k-\tau_k^{-}(R)$,
+$g_k(R;p)=\norm{\flow{w_k(R)}{p}{y_{\tau_k^{-}(R)}}-y_{\tau_k}}$, and, for $t_i\in D_k$,
+\[
+a_i(R;p)=\big\lVert\flow{t_i-\tau_k^{-}(R)}{p}{y_{\tau_k^{-}(R)}}-y_i\big\rVert,
+\qquad
+b_i(p)=\big\lVert\flow{t_i-\tau_k}{p}{y_{\tau_k}}-y_i\big\rVert ,
+\]
+the \emph{proposed coarse} and \emph{current fine} residuals. The proof of
+Proposition~\ref{prop:removal} bounds $|a_i^2-b_i^2|$ by $e^{\mu(t_i-\tau_k)}g_k(R;p)(a_i+b_i)$
+before any residual is bounded by $r$, $\rho$ or $\bar\rho$, so
+\begin{equation}
+S(R;p)=\sum_{k\in R}\ \sum_{t_i\in D_k}
+e^{\mu(t_i-\tau_k)}\,g_k(R;p)\,\big(a_i(R;p)+b_i(p)\big)\ \ge\ \big|\hatJ_K(p)-J_K(p)\big|
+\label{eq:score}
+\end{equation}
+is a valid upper bound every factor of which is computed from quantities the integrator returns,
+given a numerical value for $\mu$ (any upper bound on $\mu$ may be used, since $t_i\ge\tau_k$; $\mu$
+is a constant of (A0) and is itself not instantiated in this report, see P1 in \S\ref{sec:prov}).
+Two rules: \emph{(i)} score complete proposed removal sets by $S(R;p)$ at the current iterate and
+take the smallest; \emph{(ii)} \emph{sequential greedy}: $R_0=\emptyset$ and
+$R_j=R_{j-1}\cup\{\arg\min_c S(R_{j-1}\cup\{c\};p)\}$ over retained interior candidates $c$,
+\emph{recomputing} $\tau_k^{-}$, $w_k$, $g_k$ and the $a_i$ of the whole current set after each
+removal. Qualitatively, \eqref{eq:score} prefers nodes that launch few data ($|D_k|$ small), sit
+close to their retained left neighbour ($w_k$ small), and above all have a small coarse residual
+$g_k$.
+
+\readthis{three things this paragraph now says that a previous revision did not.
+\emph{(1) The score a previous revision proposed was not observable.} It read
+$\sum\sum e^{\mu(t_i-\tau_k)}g_k(R;p)[\rho_{t_i-\tau_k^{-}(R)}(p)+\rho_{t_i-\tau_k}(p)]$, and
+$\rho_s(p)=(1+e^{\mu s})\norm\eta_{\max}+Q(s)\norm{p-\pstar}$ contains the noise sup-norm and the
+distance to the truth, neither of which exists in a discovery problem. Making $g_k$ observable does
+not make the product observable. That form is withdrawn in favour of \eqref{eq:score}.
+\emph{(2) The exact gap is observable at the same cost, and dominates the score for ranking.}
+The integration that produces $a_i$ produces $a_i^2-b_i^2$, so
+$\hatJ_K(p)-J_K(p)=\sum_{k\in R}\sum_{t_i\in D_k}(a_i^2-b_i^2)$ is available at exactly the cost of
+\eqref{eq:score}, with no slack and no $\mu$. For ranking candidate removal sets \emph{at the current
+iterate}, use it. \eqref{eq:score} and, above it, $\Delta_K$ of \eqref{eq:prop_removal} earn their
+place only where a bound \emph{uniform over $q$ in a set} is required --- which is what
+Theorem~\ref{thm:main} and Corollary~\ref{cor:basin} consume and what a pointwise evaluation cannot
+supply.
+\emph{(3) There is no set-independent per-node score.} $\tau_k^{-}$ is the nearest \emph{retained}
+node, so removing one node changes $w_k$, $\tau_k^{-}$, $g_k$ and every $a_i$ for the
+already-removed nodes in the same consecutive run to its right; a per-node term is a contribution
+\emph{given the current retained set}, not a marginal cost that can be ranked once. Ranking once and
+removing the top $|\mathcal I_R|$ can select a set whose bound is far from the sum of its
+pre-removal scores, most severely for block removals --- the case of
+Figure~\ref{fig:removal}(b).}
+
+\paragraph{Cost.} Let $R$ be the current removal set and $C$ the number of retained interior
+candidates. Evaluating \eqref{eq:score} for a given $R$ costs one coarse-window integration per
+$k\in R$, over $[\tau_k^{-}(R),\max D_k]$ (length $w_k+h_k$), each of which yields $g_k$ and all the
+$a_i$ of that node as by-products; the $b_i$ are residuals the fine objective already computes.
+Hence:
+\begin{itemize}[nosep]
+\item \textbf{per candidate $c$:} $O(1)$ coarse-window integrations for $c$ itself, \emph{plus} a
+re-integration for every already-removed $k\in R$ whose retained left neighbour changes when $c$ is
+removed --- none if $c$ is isolated from $R$, and the whole consecutive run to the right of $c$ in
+the worst case, i.e.\ $O(|R|)$;
+\item \textbf{per greedy step:} $O(C\,|R|)$ window integrations in the worst case, $O(C)$ when
+removals stay isolated;
+\item \textbf{whole greedy schedule} of $|\mathcal I_R|$ removals: $O(|\mathcal I_R|\,C\,|R|)
+=O(C\,|\mathcal I_R|^{2})$ in the worst case.
+\end{itemize}
+\readthis{caching, which is a remark and not the headline figure. Removing $c$ changes
+$\tau_k^{-}$ only for nodes in the removed run immediately to its right, so contributions cached by
+the key $(\tau_k^{-}(R),\tau_k)$ remain valid for every other candidate and a greedy step
+re-evaluates only the candidates whose left retained neighbour changed at the previous step ---
+$O(1)$ candidates for isolated removals. The worst-case figures above stand. Standing caveat: all of
+this minimises a \emph{bound} on the cost gap (or, for the exact gap, the cost gap itself at one
+$p$), which is not the same as minimising the displacement of the minimiser; that step needs the
+strong-convexity premise of Theorem~\ref{thm:main} and the reconnection hypothesis (R) of
+Remark~\ref{rem:reconnect}.}
+```
+
+#### (E5) Theorem 1 — the constant branch is `8c₀E²` [replaces R4 block (J) in full]
+
+```latex
+Writing $E=\norm\eta_{\max}$, $\delta=\norm{q-\pstar}$ and
+$c_0=n_{\max}|\mathcal I_R|e^{\mu^{+}\Delta T_1}$, the bound of \eqref{eq:prop_removal} is
+\begin{equation}
+\Delta_K(q)=c_0\,\bar\rho_{\Delta T_2}(q)\Big[\bar\rho_{\Delta T_1+\Delta T_2}(q)
++\bar\rho_{\Delta T_1}(q)\Big],
+\label{eq:DeltaK_quad}
+\end{equation}
+a \emph{piecewise} homogeneous quadratic in $(E,\delta)$ with non-negative deterministic
+coefficients on each branch. By Lemma~\ref{lem:rhobar}(v), and assuming $\Delta T_1,\Delta T_2>0$:
+\begin{itemize}[nosep]
+\item if $\mu\ge0$, or if $\mu<0$ and $\tilde L\delta>|\mu|E$, every $\bar\rho$ equals the
+corresponding $\rho$ and
+$\Delta_K=c_0\,\rho_{\Delta T_2}\big[\rho_{\Delta T_1+\Delta T_2}+\rho_{\Delta T_1}\big]$;
+\item if $\mu<0$ and $\tilde L\delta\le|\mu|E$, then $\bar\rho_s=2E$ for \emph{all three} arguments,
+so
+\begin{equation}
+\Delta_K=c_0\,(2E)\,\big[2E+2E\big]=8c_0E^{2}.
+\label{eq:DeltaK_flat}
+\end{equation}
+\end{itemize}
+\readthis{the factor in \eqref{eq:DeltaK_flat} is $8$, not $4$: the bracket of
+\eqref{eq:DeltaK_quad} holds \emph{two} envelopes, each equal to $2E$ on that branch, so the product
+is $2E\cdot4E$. An earlier version wrote $4c_0E^{2}$, having collapsed the bracket as if it held
+one. The check that settles it is the agreement with
+Corollary~\ref{cor:removal_global} evaluated at $p=\pstar$, which must lie on this branch when
+$\mu<0$ since $\delta=0$: there
+$\Delta_K(\pstar)=c_0(1+e^{\mu^{+}\Delta T_2})[(1+e^{\mu^{+}(\Delta T_1+\Delta T_2)})
++(1+e^{\mu^{+}\Delta T_1})]E^{2}=c_0\cdot2\cdot4\,E^{2}=8c_0E^{2}$ for $\mu<0$. The two routes must
+agree, and any future change to \eqref{eq:prop_removal} must be checked against both.}
+On every branch $\Delta_K$ is non-decreasing in $\delta$, so $\sup_{q\in U}\Delta_K(q)$ is
+$\Delta_K$ evaluated at $\delta=R_U:=\sup_{q\in U}\norm{q-\pstar}$: the supremum in \eqref{eq:thm}
+is computable, not merely finite. On the branch \eqref{eq:DeltaK_flat} the displacement bound
+\eqref{eq:thm} reads $\norm{\hat p^{(K)}-p^{(K)}}\le\sqrt{32c_0E^{2}/m}=4E\sqrt{2c_0/m}$ and the
+smallness condition (B2) of Corollary~\ref{cor:basin} reads $8c_0E^{2}<mr^{2}/4$, i.e.\
+$E<(r/4)\sqrt{m/(2c_0)}$. A smooth quadratic majorant $\Delta_K\le\Delta_K^{+}$, obtained by
+replacing each $\bar\rho$ with $\rho^{+}$, is given in Remark~\ref{rem:rhoplus}; it is convenient
+(for instance for solving (B2) for $r$ in closed form) and strictly loose for $\mu<0$ away from
+$\pstar$.
+```
+
+#### (F5) Lemma `rhobar`(v), the `ρ⁺` remark's equality cases, and the `ρ̄` motivation [replaces item (v) and its proof in R4 block (F), and replaces `rem:rhoplus` in full]
+
+```latex
+% --- Lemma~\ref{lem:rhobar}, item (v), replacing the previous item (v) ---
+\emph{(v)} if $\mu\ge0$ then $\bar\rho_s=\rho_s$ for every $s\ge0$; if $\mu<0$ then
+$\bar\rho_0=\rho_0=2\norm\eta_{\max}$ for every $p$, while for every $s>0$
+\[
+\bar\rho_s=2\norm\eta_{\max}\iff\tilde L\norm{p-\pstar}\le|\mu|\,\norm\eta_{\max},
+\qquad\text{and}\qquad \bar\rho_s=\rho_s\ \text{otherwise},
+\]
+the branch being independent of $s$ on $s>0$.
+
+% --- proof of (v), replacing the previous proof of (v) ---
+(v) For $\mu\ge0$, $\rho_s\ge\rho_0=2\norm\eta_{\max}$ by (i). For $\mu<0$ write
+$Q(s)=\frac{\tilde L}{|\mu|}(1-e^{-|\mu|s})$ and $e^{\mu s}-1=-(1-e^{-|\mu|s})$, so
+\[
+\rho_s-2\norm\eta_{\max}=\big(1-e^{-|\mu|s}\big)
+\Big(\tfrac{\tilde L}{|\mu|}\norm{p-\pstar}-\norm\eta_{\max}\Big).
+\]
+For $s>0$ the first factor is strictly positive, so the sign is that of
+$\tilde L\norm{p-\pstar}-|\mu|\norm\eta_{\max}$ and does not depend on $s$; at $s=0$ the first
+factor vanishes and $\rho_0=2\norm\eta_{\max}$ regardless of $p$. \readthis{the characterisation is
+a statement about $s>0$. An earlier version asserted it for all $s\ge0$, which is false in the
+``only if'' direction at $s=0$, where $\bar\rho_0=2\norm\eta_{\max}$ for \emph{every} parameter
+distance.}
+
+% --- Remark~\ref{rem:rhoplus}, replacing it in full ---
+\begin{remark}[the smooth quadratic majorant, and why it is not the primary bound]\label{rem:rhoplus}
+Put $\rho^{+}_s(p)=\big(1+e^{\mu^{+}s}\big)\norm\eta_{\max}+Q(s)\norm{p-\pstar}$. Then
+$\bar\rho_s\le\rho^{+}_s$ for every $s\ge0$ and every $p$, with equality \emph{exactly} when
+\[
+\mu\ge0,\quad\text{or}\quad p=\pstar,\quad\text{or}\quad\norm\eta_{\max}=0,
+\quad\text{or}\quad s=0,
+\]
+and strict inequality otherwise. [\emph{Proof.} For $\mu\ge0$, $\mu^{+}=\mu$ and
+$\bar\rho_s=\rho_s=\rho^{+}_s$ by Lemma~\ref{lem:rhobar}(v). For $\mu<0$,
+$\rho^{+}_s=2\norm\eta_{\max}+Q(s)\norm{p-\pstar}$ and
+$\bar\rho_s=\max\{2\norm\eta_{\max},(1+e^{\mu s})\norm\eta_{\max}+Q(s)\norm{p-\pstar}\}$: if
+$\norm{p-\pstar}=0$ or $s=0$ both sides are $2\norm\eta_{\max}$; if $\norm\eta_{\max}=0$ both are
+$Q(s)\norm{p-\pstar}$; otherwise $s>0$, $\norm\eta_{\max}>0$, $\norm{p-\pstar}>0$, and either
+$\bar\rho_s=(1+e^{\mu s})\norm\eta_{\max}+Q(s)\norm{p-\pstar}<\rho^{+}_s$ because $e^{\mu s}<1$, or
+$\bar\rho_s=2\norm\eta_{\max}<\rho^{+}_s$ because $Q(s)>0$.]
+So every bound below remains true with $\bar\rho$ replaced by $\rho^{+}$; $\rho^{+}$ is a single
+affine form in $(\norm\eta_{\max},\norm{p-\pstar})$ with non-negative deterministic coefficients
+$A_s=1+e^{\mu^{+}s}$, $B_s=Q(s)$, which makes $\Delta_K$ of \eqref{eq:prop_removal} a homogeneous
+quadratic form rather than a piecewise quadratic one.
+\readthis{$\rho^{+}$ is a \emph{convenience}, not the bound, and the regime where the difference
+matters is \emph{not} exhibited anywhere in this report.
+\emph{(i) Where $\bar\rho$ is strictly better.} Let the system be uniformly contractive on
+$X\times P$, i.e.\ $\lambda_{\max}(\operatorname{sym}J_f(x;p))\le\mu<0$ for all $(x,p)\in X\times P$
+--- for instance a linear field $\dot x=Ax+B(p)$ with $\operatorname{sym}A\prec0$, or the gradient
+flow of a potential that is uniformly strongly convex on $X$. Then for every $s>0$ and every $p$
+with $\tilde L\norm{p-\pstar}\le|\mu|\norm\eta_{\max}$, Lemma~\ref{lem:rhobar}(v) gives
+$\bar\rho_s=2\norm\eta_{\max}$ while $\rho^{+}_s=2\norm\eta_{\max}+Q(s)\norm{p-\pstar}$, larger by
+up to $\tilde L\norm{p-\pstar}/|\mu|$. Since the whole point of replacing $L$ by a one-sided
+constant is to exploit contraction, the primary statements carry $\bar\rho$, and $\Delta_K$ is
+described as \emph{piecewise} quadratic --- the truthful description --- with the branch switching
+on the sign of $\tilde L\norm{q-\pstar}-|\mu|\norm\eta_{\max}$.
+\emph{(ii) FHN exhibits none of this.} The global constant measured in \S\ref{sec:num} is
+$\mu=\nmu>0$, and for $\mu\ge0$ Lemma~\ref{lem:rhobar}(v) makes $\rho$, $\bar\rho$ and $\rho^{+}$
+\emph{identically equal}. So no number in \S\ref{sec:num} --- at $\pstar$, at the off-truth
+perturbation, or at $p_{\rm wrong}$ --- distinguishes the three, and this report contains \emph{no}
+numerical evidence bearing on the choice. The negative per-window exponents $\Lambda^D_k$ of
+Table~\ref{tab:windows} are \emph{not} instances of $\mu<0$: they are linearised, weighted,
+endpoint exponents along the true orbit at the true parameter, and Remark~\ref{rem:envelopes} gives
+four independent reasons why they may not be substituted for the uniform $\mu$ of $X\times P$. An
+earlier version of this remark cited them as the regime where the $\bar\rho/\rho^{+}$ distinction
+``lives'', which commits exactly the substitution Remark~\ref{rem:envelopes} forbids; that citation
+is withdrawn.
+\emph{(iii) A still earlier version} made $\rho^{+}$ primary and justified it by claiming the choice
+``costs nothing where every number in \S\ref{sec:num} is evaluated''. That claim was doubly wrong:
+Figure~\ref{fig:removal} evaluates off-truth as well as at $\pstar$, and, more fundamentally,
+\S\ref{sec:num} cannot distinguish the alternatives at all.}
+\end{remark}
+```
+
+#### (G5) §2.1 — `(eq:DTmaxdef)` reverted, `Λ_R` kept as notation only [replaces the `ΔT_max` display and its `\readthis` in R4 block (A)]
+
+```latex
+% --- inside (A0), replacing R4's \eqref{eq:DTmaxdef} display and its \readthis ---
+and a horizon $\Delta T_{\max}>0$ at least as large as the longest window of any partition under
+discussion --- \emph{the coarse partitions included}, i.e.
+\begin{equation}
+\Delta T_{\max}\ \ge\ \max_{\text{partitions under discussion}}\ \max_k\,(\tau_k-\tau_{k-1}),
+\label{eq:DTmaxdef}
+\end{equation}
+where ``partitions under discussion'' means every fine partition, every coarse partition obtained
+from it by a node removal of \S\ref{sec:removal}, and every common refinement of
+Corollary~\ref{cor:repartition}. For a removal set $\mathcal I_R$ write
+\begin{equation}
+\Lambda_R:=\max_{k\in\mathcal I_R}\,(h_k+w_k)
+\label{eq:LambdaR}
+\end{equation}
+for the longest elapsed time of a coarse predictor, from its retained launch node to the last datum
+it predicts.
+\readthis{$\Lambda_R$ is \emph{not} a new horizon: it is the longest \emph{affected coarse window},
+and \eqref{eq:DTmaxdef} already covers it. Indeed, let $\tau_j,\dots,\tau_{j+n}$ be a maximal run of
+consecutively removed nodes, with $\tau_{j-1}$ and $\tau_{j+n+1}$ retained. For every $k$ in the run
+$\tau_k^{-}=\tau_{j-1}$, so $h_k+w_k=\tau_{k+1}-\tau_{j-1}$, which increases along the run and is
+maximal at $k=j+n$, where $\tau_{k+1}=\tau_{j+n+1}$ is retained and
+$h_k+w_k=\tau_{j+n+1}-\tau_{j-1}$ --- the coarse window spanning the run. Hence
+$\Lambda_R\le\max_k(\text{coarse window }k)\le\Delta T_{\max}$ automatically. An earlier version of
+this paragraph claimed that $h_k+w_k$ is not a coarse window for a consecutive run and imposed
+$\Delta T_{\max}\ge\Lambda_R$ as a separate requirement, together with the statement that this makes
+\eqref{eq:closure} strictly harder; both are withdrawn. $\Lambda_R$ is retained as notation because
+\S\ref{sec:defs} contrasts it with the collapsed argument $\Delta T_1+\Delta T_2$ of
+Corollary~\ref{cor:removal_global}, which can be strictly larger.}
+```
+
+#### (H5) §2.1 — (A1) item (ii), enlarging `r_X` [replaces item \emph{(ii)} of the (A1) `\readthis` in R4 block (A)]
+
+```latex
+\emph{(ii)} Enlarging $r_X$ \emph{may} fail to rescue (A1-i), and whether it does is a property of
+the specific right-hand side. $\mu$ and $\tilde L$ are suprema over $X\times P$ with
+$X\supseteq\mathcal T(r_X)$, hence non-decreasing in $r_X$ --- but not, in general, strictly
+increasing: for $f$ affine in $x$ they do not depend on $X$ at all, and for the FitzHugh--Nagumo
+field the Euclidean upper logarithmic norm is bounded above globally (the $1-x_1^{2}$ entry of
+$J_f$ decreases without bound as $|x_1|$ grows), so $\mu(X\times P)$ \emph{saturates} at a finite
+global value once $X$ is large enough. What can be said without a system-specific proof is that the
+constants must be \emph{recomputed} over the larger region and can grow rapidly, that
+$Q(\Delta T_{\max})$ depends exponentially on $\mu(r_X)\Delta T_{\max}$ while the right-hand side of
+(A1-i) grows only linearly in $r_X$, and that no general conclusion follows from monotonicity alone.
+\readthis{for FitzHugh--Nagumo the honest answer is worse than a failure of (A1-i), not better.
+Because $\mu$ saturates at $\nmu$, (A1-i) \emph{is} satisfiable by inflating the tube: fix $X$ large
+enough that $\mu=\nmu$ and $\tilde L=\nLtilde$ are the global values, then any
+$r_X>Q(\Delta T_{\max})\operatorname{diam}(P)$ works --- about
+$5.86\cdot10^{51}\operatorname{diam}(P)$ at $\Delta T_{\max}=100$. Admissibility is then bought, and
+the \emph{same} factor $Q(\Delta T_{\max})$ appears inside $\rho$, $\bar\rho$, $\Delta_K$,
+\eqref{eq:thm} and (B2), so every conclusion one owns on that region is vacuous by the identical
+amount. The obstruction is not that (A1) cannot be satisfied; it is that the region on which it can
+be satisfied is one where the bounds carry no information. An earlier version of this item asserted
+instead that the constants are strictly increasing in $r_X$ and that (A1-i) is a competition a
+larger tube necessarily loses; both claims are withdrawn.}
+```
+
+#### (I5) §7 and the abstract — P1 not evaluated, P2 added [replaces R4 block (N) in full, and replaces item \emph{(iv)} of the (A1) `\readthis` in R4 block (A)]
+
+```latex
+% --- abstract: replaces "ten gates verify the inheritance (\S\ref{sec:prov}); one
+%     theoretical-premise check --- the closure condition (A1) at $\Delta T_{\max}=100$ ---
+%     fails, and is reported there." ---
+ten gates verify the inheritance (\S\ref{sec:prov}); two theoretical-premise checks are \emph{not
+evaluated} --- the closure condition (A1) of \S\ref{sec:defs} and the reconnection hypothesis (R)
+relating the constrained minimisers of the theory to the unconstrained iterates of \S\ref{sec:num}
+--- and indicative constants carried over from the R002 probe box suggest that (A1) fails for long
+windows. Every statement of \S\ref{sec:lemmas}--\S\ref{sec:removal} is therefore conditional, at
+every stage of the schedule.
+
+% --- (A1) \readthis, replacing item (iv) ---
+\emph{(iv)} \textbf{Read this:} nothing in this section is \emph{certified} at any window length.
+The constants above were not computed over the $X\times P$ of (A0), so (A1) has not been evaluated
+for any $\Delta T_{\max}$, short or long; what the orders of magnitude show is that short windows are
+the only regime in which (A1-i) is not already excluded by many orders of magnitude, and whether it
+holds there is unknown. An earlier version of this item said that the machinery ``certifies short
+windows only'' and that ``the theory supports the beginning of the schedule and is silent at its
+end''; both are withdrawn as unearned. The correct reading is: the theory is conditional throughout
+the schedule, and the indicative constants suggest the condition is hopeless at its end --- the
+terminal single-shooting stage, which is the stage the headline experiment of \S\ref{sec:num}
+reports.
+
+% --- \S\ref{sec:prov}, after the G1--G10 list and the "Outcome:" line ---
+\paragraph{Open theoretical-premise checks.}
+The following two items are \emph{not} gates and are not counted among G1--G10: those ten are
+mechanical inheritance checks on files, hashes, figures and regenerated numbers, all of which pass,
+and they are the ones recorded in \texttt{gates\_summary.json}. The items below are premises of the
+\emph{theory} of \S\ref{sec:defs}--\S\ref{sec:removal} that this report has not evaluated. They are
+listed separately so that an unevaluated premise is not mistaken for a broken inheritance check, and
+so that no future revision ``repairs'' one by weakening it.
+\begin{itemize}[nosep]
+\item \textbf{P1 (premise check --- \emph{not evaluated}).} The closure condition (A1),
+\eqref{eq:closure}--\eqref{eq:closure_two}, has not been evaluated for any $\kappa$. Evaluating it
+requires instantiating a tube radius $r_X$, recomputing $\mu$ and $\tilde L$ as suprema over the
+resulting $X\times P$, fixing $\operatorname{diam}(P)$, and exhibiting $r'>0$ satisfying both (A1-i)
+and (A1-ii). None of these has been instantiated numerically. The values $\mu=\nmu$,
+$\tilde L=\nLtilde$ quoted in \S\ref{sec:defs} were measured over the probe box of R002/R003, which
+is \emph{not} the $X\times P$ of (A0); they are therefore \emph{indicative} and the
+order-of-magnitude table computed from them is not a check of (A1). What they indicate is that the
+binding condition (A1-i), $Q(\Delta T_{\max})\operatorname{diam}(P)<r_X$, fails for long windows at
+any tube radius of usable size. \emph{Status: unverified, not failed} --- a condition evaluated with
+constants from the wrong region has not been evaluated. Consequently every statement of
+\S\ref{sec:lemmas}--\S\ref{sec:removal} is conditional on an event, $E_X$, whose probability this
+report does not bound numerically, at \emph{every} stage of the schedule.
+\item \textbf{P2 (premise check --- \emph{not evaluated}).} The reconnection hypothesis (R) of
+Remark~\ref{rem:reconnect} --- the existence of a compact convex $P$ satisfying (A0)--(A1), a convex
+$U\subseteq P$ containing the reported optimum in its interior, stationarity of $J_K$ there, and
+$m$-strong convexity of $J_K$ on $U$ --- has not been evaluated. $P$, $X$, $r_X$ and
+$\operatorname{diam}(P)$ are not instantiated anywhere in this report, the optimisers of
+\S\ref{sec:num} are unconstrained, and the Hessian panels of Figure~\ref{fig:hessian} are
+measurements at particular points, not a strong-convexity certificate on a named convex set. Until
+(R) is established, the displacement, basin-retention and penalty-bias statements apply to the
+\emph{constrained} minimisers of \eqref{eq:minimisers} and not to the numbers reported in
+\S\ref{sec:num}.
+\end{itemize}
+```
+
+#### (J5) The envelope remark — the confined class, justified without the withdrawn clause [replaces the first `\readthis` sentence of R4 block (K), from "why the class must be ``confined''" to "left the advertised substitution unlicensed in precisely the place it was advertised"]
+
+```latex
+\readthis{\emph{why the class must be ``confined'', not ``launched within $r'$ of the orbit''.} On
+$E_X$ every shooting node satisfies $\norm{y_\tau-x^\star(\tau)}\le r'$, so
+Lemma~\ref{lem:noescape} confines the trajectory launched from \emph{each} such node --- separately,
+under its own parameter --- to $\mathcal T\subseteq X$, and convexity of $X$ places every joining
+chord in $X$. Every pair used in \S\ref{sec:lemmas}--\S\ref{sec:removal} is a pair of such
+trajectories, so every such pair is confined; that, and not any statement about launches from
+reachable states, is what licenses the substitution. Note that the pairs are \emph{not} all launched
+at a common time or from states within $r'$ of the orbit at the comparison time: the coarse
+predictor of Proposition~\ref{prop:removal} is compared with the fine one at $\tau_k$, where it has
+already run for $w_k$ and is known only to be within $r_X$ of the orbit, and the pairs of
+Corollary~\ref{cor:repartition} are launched from the nodes of two different partitions. A previous
+version of this remark defined the suprema over pairs ``launched anywhere within $r'$ of the orbit,
+at any $p\in P$'', which excludes those pairs and left the advertised substitution unlicensed in
+precisely the place it was advertised; and ``at any $p\in P$'' is ambiguous for $\mathcal Q$, whose
+pairs carry \emph{two} parameters. Both are fixed above.
+```
+
+#### (K5) §2.3 — terminal transitions, the `Λ_R` sentences corrected [replaces the last two sentences of the `\readthis` of R4 block (L); the table and the preceding sentences are unchanged]
+
+```latex
+The \emph{actual} elapsed time in the primary bound \eqref{eq:prop_removal_datum} never exceeds
+$\Lambda_R=100$ in either case, which is the coarse window $\{0,100\}$ itself --- so it is covered by
+\eqref{eq:DTmaxdef} with no separate requirement, the coarse partitions being among the partitions
+under discussion. The gap between $\Lambda_R=100$ and the collapsed argument
+$\Delta T_1+\Delta T_2=150$ (FULL) or $190$ (DENSE) is entirely the price of collapsing $h_k$ and
+$w_k$ to independent maxima in Corollary~\ref{cor:removal_global}. On these transitions the per-datum
+bound carries $e^{\mu(t_i-75)}\le e^{25\mu^{+}}$ and residual arguments at most $100$, against the
+collapsed $e^{75\mu^{+}}$ and $\bar\rho_{150}$.
+```
+
+### 2.3 Final state of every statement (consolidated, for the revision step)
+
+Read in the order R2 → R3 → R4 → R5; the **latest** listed block is authoritative.
+
+| Object | Authoritative block | Notes |
+|---|---|---|
+| Abstract — draft-vs-revised amplification numbers | R2 (a) | unchanged |
+| Abstract — "assumptions stated in full" clause | R3 (M) | unchanged |
+| Abstract — gates / premise-check sentence | **R5 (I5)** | two premise checks, both *not evaluated* |
+| (A0) regularity and admissible region | R3 (A) + **R5 (G5)** | R5 replaces only the `ΔT_max` clause; `Λ_R` defined in `(eq:LambdaR)` |
+| (A1) closure, two necessary conditions | R4 (A) + **R5 (H5)** (item ii) + **R5 (I5)** (item iv) | items (i), (iii), (v) of R4 stand |
+| (A2) noise model, `E_X`, `(eq:tail)`, `lem:trunc` | R3 (A) | unchanged |
+| (A3) | — | no (A3) exists; the label is not used |
+| Scope paragraph (S1)–(S4) | R4 (B) | unchanged |
+| Minimiser convention + `lem:vi` | R3 (B), with its `\readthis` last sentence replaced by **R5 (A5)** | shrinkage-typicality sentence withdrawn |
+| `lem:vi_local` + Remark reconnection (R) | **R5 (A5)** | new this round |
+| Definition `def:Tx` (confinement time) | R4 (C) | unchanged |
+| Lemma 1′ (`lem:state`, local) | R4 (C) | unchanged |
+| Lemma 2′ (`lem:param`, local) | R4 (D) | unchanged |
+| Lemma 0 (`lem:noescape`) | R4 (E) | unchanged |
+| `cor:confined` (full-window corollary) | R4 (E) + **R5 (B5)** | reachable-state clause deleted |
+| `Q`, `ρ`, `ρ̄` definitions; Lemma `rhobar` (i)–(iv) | R4 (F) | unchanged |
+| Lemma `rhobar` (v) | **R5 (F5)** | restricted to `s>0`; `ρ̄_0=2E` stated separately |
+| `ρ⁺` and `rem:rhoplus` | **R5 (F5)** | equality cases; contractive-system motivation; Table 2 not cited |
+| `r_{σ,t}` per-datum residual | **R5 (C5)** | new notation `(eq:rdatum)` |
+| Lemma 3 (`lem:residual`) | R3 (D), restated in `r_{σ,t}` notation by **R5 (C5)** | `ρ⁺ → ρ̄` substitution from R4 (F) still applies |
+| Proposition 1 (`prop:cost`) | R3 (E) | unchanged; `ρ⁺ → ρ̄` |
+| Proposition 2 (`prop:perr`) | R3 (F) | unchanged; localised form via R5 (A5)(ii) |
+| `Ĵ_K` definition | R2 (k) | unchanged |
+| Proposition 3 + `cor:removal_rho` / `cor:removal_node` / `cor:removal_global` | **R5 (C5)** | replaces R4 (G) in full |
+| Node-selection rule | **R5 (D5)** | replaces R4 (H) in full; `S(R;p)` observable |
+| Theorem 1 (`thm:main`) statement and proof | R3 (H), with `Δ_K` display replaced by **R5 (E5)** | `ρ⁺ → ρ̄`; `c₀ = n_max|I_R|e^{μ⁺ΔT₁}` (no factor 2) |
+| Corollary 2 (`cor:basin`) | R3 (I) + R4 (I) + **R5 (A5)** | R4 fixes interiority; R5 withdraws the shrinkage clause and adds the localised form |
+| Corollary 3 (`cor:repartition`) | R3 (J) | unchanged; inherits R5 (C5)'s corrected step |
+| Corollary 1 (per-window), item (iii) removed | R3 (K) | unchanged |
+| Envelope remark `rem:envelopes` | R4 (K) + **R5 (J5)** | first `\readthis` sentence replaced |
+| Nesting paragraph / schedules | R3 (L) | unchanged |
+| Terminal transitions §2.3 | R4 (L) + **R5 (K5)** | last two `\readthis` sentences replaced |
+| Plateau / blow-up sentences | R4 (M) | withdrawn; unchanged this round |
+| Penalty-bias remark `rem:impl`(ii) | R3 (N) | unchanged; conditional on (C1)–(C2) and now also on (R) |
+| Gates G1–G10 | R2 (r) | unchanged, ten gates |
+| Premise checks P1, P2 | **R5 (I5)** | both *not evaluated* |
+| Figure 10 caption | R2 (q) | unchanged |
+| Figure 14 caption / gate-bullet edits | R2 (r) | unchanged |
+| Constants paragraph §2.2 | R2 (c) | unchanged |
+
+---
+
+## Section 3 — back to you
+
+This is the final round of the loop; please give your verdict on the artifact as it now stands,
+distinguishing blocking from minor.
+
+```
+Review the updated plan and my responses to your earlier issues.
+Push back on responses where I defended poorly — name which point.
+Raise any new issues the updated plan creates. Re-issue any earlier
+issue you don't think I addressed. Same numbered format and same
+verdict line at the end:
+
+  VERDICT: APPROVED
+  VERDICT: ISSUES_REMAIN
+```
+
+hook: SessionStart
+hook: SessionStart Completed
+codex
+1. **BLOCKING — The new FHN claim about enlarging \(r_X\) uses constants that are not global.**  
+   **WHAT:** Block (H5) says that once \(X\) is sufficiently large, both \(\mu=\nmu\) and \(\tilde L=\nLtilde\) become global, so choosing
+   \[
+   r_X>Q(\Delta T_{\max})\operatorname{diam}(P)
+   \]
+   makes (A1-i) satisfiable. Only the true-field upper logarithmic norm is global in \(x\) at \(p^\star\). For the cubic candidate library,
+   \[
+   \frac{\partial f}{\partial p}
+   \]
+   contains monomials through degree three, so \(\tilde L(X)\) grows without bound as \(X\) expands. Moreover, \(\mu=1.17\) is not uniform over \(P\); candidate coefficients alter the Jacobian and may introduce positive unbounded growth.  
+   **WHY:** The conclusion that an enormous tube buys admissibility is unsupported and generally false for the actual candidate family. It also contradicts the manuscript’s earlier, correct warning that the measured constants apply only at \(p^\star\) along the probe region.  
+   **WHAT TO DO:** Delete the FHN-specific “satisfiable by inflating the tube” calculation. State only that feasibility must be determined jointly from \(\mu(X\times P)\), \(\tilde L(X\times P)\), \(r_X\), and \(P\). The values \(1.17\) and \(10.56\) cannot be held fixed while \(X\) is enlarged.
+
+2. **BLOCKING — The common-refinement bound still uses the obsolete loose Proposition 3 formula.**  
+   **WHAT:** Corollary 3 remains inherited from R3 and defines
+   \[
+   \Delta^{C\to S}
+   =2n_{\max}^C|C\setminus S|e^{\mu^+\Delta T_1^C}
+     \bar\rho_{\Delta T^S}\bar\rho_{\Delta T_1^C+\Delta T^S}.
+   \]
+   R5’s corrected collapsed node-removal bound is instead
+   \[
+   n_{\max}^C|C\setminus S|e^{\mu^+\Delta T_1^C}
+   \bar\rho_{\Delta T^S}
+   \left[
+     \bar\rho_{\Delta T_1^C+\Delta T^S}
+     +\bar\rho_{\Delta T_1^C}
+   \right].
+   \]
+   The old expression remains a valid but weaker upper bound because the second bracket is at most twice its longer envelope.  
+   **WHY:** General repartition is the theorem that actually covers almost all schedule transitions. Leaving its principal bound at the discarded factor-two relaxation violates the stated tightness objective and the claimed “consequential inheritance” of the corrected Proposition 3.  
+   **WHAT TO DO:** Replace \(\Delta^{C\to S}\) by the corrected bracketed expression, then update \(\Delta_{A,B}\), its truth specialization, and any downstream displacement constants.
+
+3. **BLOCKING — Hypothesis (R) is insufficient for the localized Proposition 2 claim.**  
+   **WHAT:** (R) requires \(p_{\rm num}\in\operatorname{int}U\), stationarity there, and strong convexity on \(U\), but does not require \(p^\star\in U\). Proposition 2 applies the local minimizer inequality specifically at \(q=p^\star\).  
+   **WHY:** Without \(p^\star\in U\), neither
+   \[
+   J_K(p^\star)\ge J_K(p_{\rm num})
+      +\frac m2\|p^\star-p_{\rm num}\|^2
+   \]
+   nor the advertised parameter-displacement bound follows.  
+   **WHAT TO DO:** Add \(p^\star\in U\) to the conditions for the localized Proposition 2. It need not be part of the weaker hypothesis used solely for basin retention, so state result-specific variants if desired.
+
+4. **MINOR — Ranking by the “exact gap” needs an absolute value or a different objective.**  
+   **WHAT:** The observable quantity is
+   \[
+   \hat J_K(p)-J_K(p)=\sum(a_i^2-b_i^2),
+   \]
+   which is signed. The perturbation theory controls its absolute value. Choosing the “smallest” signed gap could favor a very large negative perturbation rather than a small change between objectives.  
+   **WHY:** The proposed practical rule is ambiguous and can optimize the opposite quantity from the theorem.  
+   **WHAT TO DO:** If the aim is partition continuity, rank using
+   \[
+   |\hat J_K(p)-J_K(p)|.
+   \]
+   If large negative changes are deliberately preferred, state that this is a separate heuristic unrelated to minimizing the perturbation bound.
+
+5. **MINOR — The artifact contradicts itself about assumption (A3).**  
+   **WHAT:** The consolidated table says “no (A3) exists; the label is not used,” but authoritative R3 block (F), Proposition 2, explicitly introduces an assumption labelled (A3), invokes it in the proof, and discusses it in the following `\readthis`.  
+   **WHY:** The consolidated state—the document intended to drive the actual edit—is not internally reliable.  
+   **WHAT TO DO:** Retain and list (A3), preferably under a descriptive name such as “uniform random strong-convexity assumption,” or rename it consistently in Proposition 2 and the scope table.
+
+6. **MINOR — The claimed equality cases for \(\bar\rho=\rho^+\) still omit \(\tilde L=0\).**  
+   **WHAT:** For \(\mu<0\), \(s>0\), \(E>0\), and \(p\ne p^\star\), the remark claims strict inequality. If \(\tilde L=0\), however, \(Q(s)=0\), so
+   \[
+   \rho_s^+=2E=\bar\rho_s
+   \]
+   regardless of \(p-p^\star\).  
+   **WHY:** The “exactly when” statement is false for a parameter-independent field, which is permitted by the assumptions.  
+   **WHAT TO DO:** Add \(Q(s)\|p-p^\star\|=0\), equivalently \(\tilde L=0\) or \(p=p^\star\), to the equality characterization.
+
+7. **MINOR — P1’s narrative still overstates what the indicative constants establish.**  
+   **WHAT:** P1 correctly says (A1) was not evaluated, but then says the indicative values show it “fails for long windows at any tube radius of usable size.” “Usable size” is undefined, and after issue 1 there is no valid extrapolation of \(\tilde L=10.56\) or \(\mu=1.17\) to enlarged tubes.  
+   **WHY:** The text retreats from “failed” to “not evaluated” and then effectively reintroduces failure through an undefined qualifier.  
+   **WHAT TO DO:** Say only that inserting the probe-region constants produces enormous factors for long windows and motivates—but does not establish—infeasibility of a useful admissible region.
+
+8. **MINOR — Hypothesis (R) alone does not reconnect all aspects of the numerical experiment.**  
+   **WHAT:** The reported point comes from a discretized, penalized objective, while (R) assumes exact stationarity and strong convexity of the exact-flow, unpenalized \(J_K\). The noisy-cost results also require the realized event \(E_X\).  
+   **WHY:** Saying “what reconnects them is (R)” is incomplete even though P2 later admits that (R) is unverified.  
+   **WHAT TO DO:** Say reconnection requires (R), \(E_X\), and the separately stated penalty/discretization qualifications. In particular, stationarity of the penalized numerical objective does not imply the stationarity appearing in (R).
+
+VERDICT: ISSUES_REMAIN
+tokens used
+209,700
+1. **BLOCKING — The new FHN claim about enlarging \(r_X\) uses constants that are not global.**  
+   **WHAT:** Block (H5) says that once \(X\) is sufficiently large, both \(\mu=\nmu\) and \(\tilde L=\nLtilde\) become global, so choosing
+   \[
+   r_X>Q(\Delta T_{\max})\operatorname{diam}(P)
+   \]
+   makes (A1-i) satisfiable. Only the true-field upper logarithmic norm is global in \(x\) at \(p^\star\). For the cubic candidate library,
+   \[
+   \frac{\partial f}{\partial p}
+   \]
+   contains monomials through degree three, so \(\tilde L(X)\) grows without bound as \(X\) expands. Moreover, \(\mu=1.17\) is not uniform over \(P\); candidate coefficients alter the Jacobian and may introduce positive unbounded growth.  
+   **WHY:** The conclusion that an enormous tube buys admissibility is unsupported and generally false for the actual candidate family. It also contradicts the manuscript’s earlier, correct warning that the measured constants apply only at \(p^\star\) along the probe region.  
+   **WHAT TO DO:** Delete the FHN-specific “satisfiable by inflating the tube” calculation. State only that feasibility must be determined jointly from \(\mu(X\times P)\), \(\tilde L(X\times P)\), \(r_X\), and \(P\). The values \(1.17\) and \(10.56\) cannot be held fixed while \(X\) is enlarged.
+
+2. **BLOCKING — The common-refinement bound still uses the obsolete loose Proposition 3 formula.**  
+   **WHAT:** Corollary 3 remains inherited from R3 and defines
+   \[
+   \Delta^{C\to S}
+   =2n_{\max}^C|C\setminus S|e^{\mu^+\Delta T_1^C}
+     \bar\rho_{\Delta T^S}\bar\rho_{\Delta T_1^C+\Delta T^S}.
+   \]
+   R5’s corrected collapsed node-removal bound is instead
+   \[
+   n_{\max}^C|C\setminus S|e^{\mu^+\Delta T_1^C}
+   \bar\rho_{\Delta T^S}
+   \left[
+     \bar\rho_{\Delta T_1^C+\Delta T^S}
+     +\bar\rho_{\Delta T_1^C}
+   \right].
+   \]
+   The old expression remains a valid but weaker upper bound because the second bracket is at most twice its longer envelope.  
+   **WHY:** General repartition is the theorem that actually covers almost all schedule transitions. Leaving its principal bound at the discarded factor-two relaxation violates the stated tightness objective and the claimed “consequential inheritance” of the corrected Proposition 3.  
+   **WHAT TO DO:** Replace \(\Delta^{C\to S}\) by the corrected bracketed expression, then update \(\Delta_{A,B}\), its truth specialization, and any downstream displacement constants.
+
+3. **BLOCKING — Hypothesis (R) is insufficient for the localized Proposition 2 claim.**  
+   **WHAT:** (R) requires \(p_{\rm num}\in\operatorname{int}U\), stationarity there, and strong convexity on \(U\), but does not require \(p^\star\in U\). Proposition 2 applies the local minimizer inequality specifically at \(q=p^\star\).  
+   **WHY:** Without \(p^\star\in U\), neither
+   \[
+   J_K(p^\star)\ge J_K(p_{\rm num})
+      +\frac m2\|p^\star-p_{\rm num}\|^2
+   \]
+   nor the advertised parameter-displacement bound follows.  
+   **WHAT TO DO:** Add \(p^\star\in U\) to the conditions for the localized Proposition 2. It need not be part of the weaker hypothesis used solely for basin retention, so state result-specific variants if desired.
+
+4. **MINOR — Ranking by the “exact gap” needs an absolute value or a different objective.**  
+   **WHAT:** The observable quantity is
+   \[
+   \hat J_K(p)-J_K(p)=\sum(a_i^2-b_i^2),
+   \]
+   which is signed. The perturbation theory controls its absolute value. Choosing the “smallest” signed gap could favor a very large negative perturbation rather than a small change between objectives.  
+   **WHY:** The proposed practical rule is ambiguous and can optimize the opposite quantity from the theorem.  
+   **WHAT TO DO:** If the aim is partition continuity, rank using
+   \[
+   |\hat J_K(p)-J_K(p)|.
+   \]
+   If large negative changes are deliberately preferred, state that this is a separate heuristic unrelated to minimizing the perturbation bound.
+
+5. **MINOR — The artifact contradicts itself about assumption (A3).**  
+   **WHAT:** The consolidated table says “no (A3) exists; the label is not used,” but authoritative R3 block (F), Proposition 2, explicitly introduces an assumption labelled (A3), invokes it in the proof, and discusses it in the following `\readthis`.  
+   **WHY:** The consolidated state—the document intended to drive the actual edit—is not internally reliable.  
+   **WHAT TO DO:** Retain and list (A3), preferably under a descriptive name such as “uniform random strong-convexity assumption,” or rename it consistently in Proposition 2 and the scope table.
+
+6. **MINOR — The claimed equality cases for \(\bar\rho=\rho^+\) still omit \(\tilde L=0\).**  
+   **WHAT:** For \(\mu<0\), \(s>0\), \(E>0\), and \(p\ne p^\star\), the remark claims strict inequality. If \(\tilde L=0\), however, \(Q(s)=0\), so
+   \[
+   \rho_s^+=2E=\bar\rho_s
+   \]
+   regardless of \(p-p^\star\).  
+   **WHY:** The “exactly when” statement is false for a parameter-independent field, which is permitted by the assumptions.  
+   **WHAT TO DO:** Add \(Q(s)\|p-p^\star\|=0\), equivalently \(\tilde L=0\) or \(p=p^\star\), to the equality characterization.
+
+7. **MINOR — P1’s narrative still overstates what the indicative constants establish.**  
+   **WHAT:** P1 correctly says (A1) was not evaluated, but then says the indicative values show it “fails for long windows at any tube radius of usable size.” “Usable size” is undefined, and after issue 1 there is no valid extrapolation of \(\tilde L=10.56\) or \(\mu=1.17\) to enlarged tubes.  
+   **WHY:** The text retreats from “failed” to “not evaluated” and then effectively reintroduces failure through an undefined qualifier.  
+   **WHAT TO DO:** Say only that inserting the probe-region constants produces enormous factors for long windows and motivates—but does not establish—infeasibility of a useful admissible region.
+
+8. **MINOR — Hypothesis (R) alone does not reconnect all aspects of the numerical experiment.**  
+   **WHAT:** The reported point comes from a discretized, penalized objective, while (R) assumes exact stationarity and strong convexity of the exact-flow, unpenalized \(J_K\). The noisy-cost results also require the realized event \(E_X\).  
+   **WHY:** Saying “what reconnects them is (R)” is incomplete even though P2 later admits that (R) is unverified.  
+   **WHAT TO DO:** Say reconnection requires (R), \(E_X\), and the separately stated penalty/discretization qualifications. In particular, stationarity of the penalized numerical objective does not imply the stationarity appearing in (R).
+
+VERDICT: ISSUES_REMAIN

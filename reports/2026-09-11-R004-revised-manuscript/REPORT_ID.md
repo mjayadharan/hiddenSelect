@@ -20,3 +20,4 @@ metrics), restated in §2 of this report.
 - Corrections to the draft that go beyond constants: comparator of the windowed cost is the
   noise-free windowed cost $J_K^\star$ (not the single-shooting $J^\star$); the per-window data count
   $n_{\max}$ was missing from Proposition 1; the strong-convexity constant is renamed $m$.
+- Revised after critique session 01 (5 rounds with GPT via Codex); ledger in `critique/CHATGPT_HANDOFF_01_r004-revised-manuscript/FINAL_REVISION.md`.
