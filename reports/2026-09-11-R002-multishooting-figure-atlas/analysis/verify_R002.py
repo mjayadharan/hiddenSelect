@@ -93,6 +93,44 @@ for k, g in piv.groupby("window_size"):
 chk = pd.DataFrame(rows, columns=["window_size", "gp", "ctrl"]).set_index("window_size")
 gate("G18_T1_reproduces", np.allclose(chk.gp, t1.perr_GP) and np.allclose(chk.ctrl, t1.perr_control), "median ‖p−p*‖ per κ recomputed = tables/T1_headline.csv")
 
+# G19-G20 extended landscape animations (Part I). Ordinary completeness/correctness gates:
+# G19 asserts the announced animation set exists; G20 asserts that the basin/plateau numbers in
+# tables/T7 (and printed in every frame) are recomputable from the shipped grids, so the videos and
+# the table cannot quote different geometry.
+FULL_LADDER = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 33, 50, 75, 100]
+ANIM2D = [f"anim_fhn_landscape_{k}_hires.mp4" for k in ("v_v3", "wv_ww", "v2_w2", "w_wv", "v3_w3")] + \
+         ["anim_lv_landscape_x2_xy_hires.mp4"]
+ANIM3D = [f"anim3d_fhn_landscape_{k}.mp4" for k in ("wv_ww", "v2_w2", "v_v3")] + \
+         ["anim3d_lv_landscape_x2_xy.mp4"]
+if (RES / "landscape_plane_screen_summary.csv").exists():
+    sc = rd("landscape_plane_screen_summary.csv")
+    missing_mp4 = [f for f in ANIM2D + ANIM3D
+                   if not (ROOT / "figures" / f).exists() or (ROOT / "figures" / f).stat().st_size < 10_000]
+    gate("G19_extended_landscape_animations_present",
+         len(sc) == 16 and int(sc.selected.sum()) == 5 and not missing_mp4,
+         f"{len(sc)} candidate planes screened, {int(sc.selected.sum())} animated; "
+         f"{len(ANIM2D)} 2-D + {len(ANIM3D)} 3-D MP4s; missing/empty: {missing_mp4}")
+
+    if (RES / "landscape_hires_geometry.csv").exists():
+        hg = rd("landscape_hires_geometry.csv"); ok = True; det = []
+        meta = js("landscape_planes_meta.json"); meta.update(
+            {"lv_" + k: v for k, v in js("landscape_lv_hires_meta.json").items()})
+        for plane, g in hg.groupby("plane"):
+            m = meta[plane]; n = int(m["n"])
+            df = pd.read_csv(RES / m["file"])
+            if len(df) != n * n * len(FULL_LADDER):
+                ok = False; det.append(f"{plane}: {len(df)} rows"); continue
+            J = df.J.values.reshape(len(FULL_LADDER), n, n)
+            gi = g.set_index("window_size")
+            for ki, k in enumerate(FULL_LADDER):
+                Z = J[ki]; fin = Z < 1e3
+                if abs((1 - fin.mean()) - gi.f_blow.loc[k]) > 1e-9 or \
+                   abs((Z < 2 * Z[fin].min()).mean() - gi.basin.loc[k]) > 1e-9:
+                    ok = False; det.append(f"{plane}@k={k}")
+            det.append(f"{plane}: {n}x{n}x{len(FULL_LADDER)} ok" if ok else "")
+        gate("G20_landscape_geometry_recomputes_from_grids", ok and len(hg) == 6 * len(FULL_LADDER),
+             f"{len(hg)} (plane, kappa) cells re-derived from the shipped grids; " + "; ".join(d for d in det if d))
+
 (RES / "gates_summary.json").write_text(json.dumps(GATES, indent=1))
 npass = sum(g["pass"] for g in GATES.values()); print(f"\n{npass}/{len(GATES)} gates pass")
 failed = [k for k, g in GATES.items() if not g["pass"]]

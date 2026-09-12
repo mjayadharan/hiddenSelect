@@ -116,8 +116,8 @@
   "sha256": "563f9e35f82eeae29f8e973981b98aa7c5593ae679de0526387c2d403054aa78"
  },
  "gates_summary.json": {
-  "bytes": 2383,
-  "sha256": "7ebf7b6814b9e1c96cf6812de4bc4687aa21452b36dd70678d47407edbf5c280"
+  "bytes": 2821,
+  "sha256": "aa1c6c60d7777c6f769304f21b30f201ab3090d9960766edc577c529c4b0dfee"
  },
  "hessian_at_ptrue.csv": {
   "bytes": 1225,
@@ -142,6 +142,26 @@
  "landscape_2d_w_wv.csv": {
   "bytes": 906689,
   "sha256": "7582252b19b51b846f95e3e07c045f5d31d1e5966c61dfc435520647130a45e1"
+ },
+ "landscape_hires_geometry.csv": {
+  "bytes": 6685,
+  "sha256": "ef1ecde17f15fdc6a0c103e7b4c9cbc6c4931df3345eb7bf66bb73e69aad1e91"
+ },
+ "landscape_lv_hires_meta.json": {
+  "bytes": 358,
+  "sha256": "9555f78006b584efd5b73d1a4a868f40d5c531917cce5762811d32ed88a0eeb7"
+ },
+ "landscape_plane_screen.csv": {
+  "bytes": 20416,
+  "sha256": "0a38a60a6a336282f09edb6144782235bc8cb493536521bf51cc0be969db9ce9"
+ },
+ "landscape_plane_screen_summary.csv": {
+  "bytes": 2525,
+  "sha256": "0e53d401114ee39756aa41509176a2918f9f4cabe22d78bd1536c65c4d93360a"
+ },
+ "landscape_planes_meta.json": {
+  "bytes": 1827,
+  "sha256": "03db89157f459fa676a98b0cd6ac94f157ef0e7b512ae516ced307af1e2b160c"
  },
  "landscape_x0_sensitivity.csv": {
   "bytes": 3634,
@@ -212,8 +232,8 @@
   "sha256": "e92e04d63af4151dadd0920cd8bcdf209845eaa7129c2c74fb8a05e4988855a8"
  },
  "results_hashes.json": {
-  "bytes": 7712,
-  "sha256": "3bf3aad57f8cb4f5fb47c056c321636d91ffde9705f28c62b60b7fb14cee0870"
+  "bytes": 8665,
+  "sha256": "eca32df9056300a3170201eaacf443f12f81ea348a2b94754849c1436bc929d2"
  },
  "solvers_eval.csv": {
   "bytes": 18911,

@@ -47,6 +47,15 @@ $PY figures/make_animation.py       # anim_sweep.gif + frames
 $J analysis/10_animation_data.jl    # landscape at every κ, concept segments, LV fits (~2 min)
 $J analysis/11_lv_landscape.jl      # LV landscapes (3 planes) at every κ (~8 min; pass a plane name to do one)
 $PY figures/make_animations.py      # nine MP4s (uses the FFMPEG_jll artifact binary, see script header)
+$J --threads=12 analysis/12_landscape_planes.jl   # plane screen (61x61, 16 candidates) + five FHN
+                                    # planes and the LV (x^2,xy) plane at 201x201, gzipped (~25 min)
+$PY figures/make_landscape_animations.py 2d       # six 1440p 2-D landscape MP4s (~2 min)
+                                    # also writes analysis/results/landscape_hires_geometry.csv,
+                                    # which tables/make_tables.py turns into T7 -- so re-run
+                                    # tables/make_tables.py after this line, before pdflatex.
+$PY figures/make_landscape_animations.py 3d       # four rotating 3-D landscape MP4s (~10 min each;
+                                    # they are independent, so run the four in parallel)
+$PY tables/make_tables.py           # again: picks up T6 (screen) and T7 (hi-res plane geometry)
 $PY slides/make_deck.py             # slides/multishooting_story.pptx ; python slides/qa_geometry.py for the layout check
 $PY analysis/verify_R002.py         # gates -> analysis/results/gates_summary.json
 $PY analysis/print_prose_facts.py   # analysis/number_manifest.md
@@ -55,7 +64,8 @@ pdflatex -interaction=nonstopmode -halt-on-error report.tex
 ```
 
 Wall clock on the reference machine (16 cores): batch 1 ≈ 20 min (BFGS jobs dominate), batch 2 ≈ 6 min,
-everything else ≈ 15 min serial. Batch 1 alone with a single process would take ≈ 3.5 h.
+everything else ≈ 15 min serial; the extended landscape stage (12 + the two animation
+passes) adds ≈ 25 min of Julia and ≈ 12 min of rendering with the four 3-D jobs run in parallel. Batch 1 alone with a single process would take ≈ 3.5 h.
 
 ## Determinism
 

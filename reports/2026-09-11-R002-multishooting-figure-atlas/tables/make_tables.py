@@ -104,3 +104,79 @@ h = rd("hessian_at_ptrue.csv"); NUM["hess_lambda_max_k1"] = float(h.lambda_max.i
 mn = rd("landscape_1d_minima.csv").groupby("window_size").n_local_minima.mean(); NUM["minima_k1"] = float(mn.loc[1]); NUM["minima_k100"] = float(mn.loc[100])
 (HERE / "table_numbers.json").write_text(json.dumps(NUM, indent=1, default=float))
 print("numbers:", len(NUM))
+
+# --- T6/T7: landscape-plane screen and the animated planes ----------------------------
+# (added with the extended landscape animations; sources: analysis/12_landscape_planes.jl and
+#  figures/make_landscape_animations.py. Both blocks are skipped if those stages have not run.)
+MONO = ["1", "w", "w^2", "w^3", "v", "vw", "vw^2", "v^2", "v^2w", "v^3"]   # multiindices(2,3) order
+FHN_TRUTH = [0.5, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, -1/3,
+             0.7/12.5, -0.8/12.5, 0.0, 0.0, 1.0/12.5, 0.0, 0.0, 0.0, 0.0, 0.0]
+def pname(i):  # p index (1..20) -> "$v^3$ in $\dot v$"
+    return f"${MONO[(i-1) % 10]}$ in $\\dot {'v' if i <= 10 else 'w'}$"
+
+if (RES / "landscape_plane_screen_summary.csv").exists():
+    sc = rd("landscape_plane_screen_summary.csv")
+    T6 = pd.DataFrame({
+        "plane": [f"{pname(a)}, {pname(b)}" for a, b in zip(sc.p_index_a, sc.p_index_b)],
+        "truth": [f"({FHN_TRUTH[a-1]:.4g}, {FHN_TRUTH[b-1]:.4g})" for a, b in zip(sc.p_index_a, sc.p_index_b)],
+        "1-rho": sc.rank_decorrelation.map(lambda v: f"{v:.2f}"),
+        "basin k=1 %": (100*sc.basin_k1).map(lambda v: f"{v:.2f}"),
+        "basin k=100 %": (100*sc.basin_k100).map(lambda v: f"{v:.3f}"),
+        "plateau k=1 %": (100*sc.f_blow_k1).map(lambda v: f"{v:.0f}"),
+        "plateau k=100 %": (100*sc.f_blow_k100).map(lambda v: f"{v:.0f}"),
+        "decades k=1": sc.dyn_range_decades_k1.map(lambda v: f"{v:.2f}"),
+        "decades k=100": sc.dyn_range_decades_k100.map(lambda v: f"{v:.2f}"),
+        "animated": np.where(sc.selected, "yes", ""),
+    })
+    write("T6_landscape_plane_screen", T6)
+    # Only the screen numbers Part I quotes IN PROSE go into the manifest; the remaining table
+    # cells live in tables/T6_*.tex and would otherwise fill the manifest with unquoted entries.
+    S = sc.set_index("plane")
+    NUM["anim_rank_decorr_v_v3"] = float(S.rank_decorrelation.loc["v_v3"])
+    for k in ("wv_ww", "v2_w2", "w_wv"):          # planes whose BOTH endpoints are quoted in prose
+        NUM[f"anim_decades_k1_{k}"] = float(S.dyn_range_decades_k1.loc[k])
+        NUM[f"anim_decades_k100_{k}"] = float(S.dyn_range_decades_k100.loc[k])
+    NUM["anim_decades_k1_v3_w3"] = float(S.dyn_range_decades_k1.loc["v3_w3"])
+    NUM["anim_blow_k100_v2_w2"] = float(S.f_blow_k100.loc["v2_w2"])
+    NUM["anim_blow_k1_v3_w3"] = float(S.f_blow_k1.loc["v3_w3"])
+    NUM["anim_blow_k100_v3_w3"] = float(S.f_blow_k100.loc["v3_w3"])
+    NUM["anim_n_planes_screened"] = int(len(sc))
+    NUM["anim_n_planes_animated"] = int(sc.selected.sum())
+    NUM["anim_n_censored_at_k100_screen"] = int((abs(sc.basin_k100 - 1/61**2) < 1e-12).sum())
+    NUM["screen_floor_frac"] = 1/61**2   # basin values at this floor are ONE cell: censored
+
+LV_MONO = ["1", "y", "y^2", "x", "xy", "x^2"]                              # multiindices(2,2) order
+def lvname(i):
+    return f"${LV_MONO[(i-1) % 6]}$ in $\\dot {'x' if i <= 6 else 'y'}$"
+
+if (RES / "landscape_hires_geometry.csv").exists():
+    hg = rd("landscape_hires_geometry.csv")
+    pm = js("landscape_planes_meta.json")
+    pm.update({"lv_" + k: v for k, v in js("landscape_lv_hires_meta.json").items()})
+    rows = []
+    for pl, g in hg.groupby("plane", sort=False):
+        g = g.set_index("window_size"); m = pm[pl]
+        nm = lvname if m["system"] == "lv" else pname
+        rows.append(dict(system="FHN" if m["system"] == "fhn" else "LV",
+                         plane=f"{nm(m['p_index_a'])}, {nm(m['p_index_b'])}",
+                         **{"truth": f"({m['truth_a']:.4g}, {m['truth_b']:.4g})",
+                            "basin k=1 %": f"{100*g.basin.loc[1]:.3f}",
+                            "basin k=100 %": f"{100*g.basin.loc[100]:.4f}",
+                            "basin shrink": f"{g.basin.loc[1]/g.basin.loc[100]:.0f}",
+                            "plateau k=1 %": f"{100*g.f_blow.loc[1]:.1f}",
+                            "plateau k=100 %": f"{100*g.f_blow.loc[100]:.1f}",
+                            "J min k=1": f"{g.J_min.loc[1]:.4g}",
+                            "J min k=100": f"{g.J_min.loc[100]:.4g}",
+                            "3-D": "yes" if pl in ("wv_ww", "v2_w2", "v_v3", "lv_x2_xy") else "",
+                            "key": pl}))
+    T7 = pd.DataFrame(rows)
+    write("T7_animated_planes", T7)
+    H = hg.set_index(["plane", "window_size"])
+    NUM["anim_hires_basin_k1_wv_ww"] = float(H.basin.loc[("wv_ww", 1)])
+    NUM["anim_hires_basin_k100_wv_ww"] = float(H.basin.loc[("wv_ww", 100)])
+    NUM["anim_hires_blow_k75_w_wv"] = float(H.f_blow.loc[("w_wv", 75)])
+    NUM["anim_hires_blow_k100_w_wv"] = float(H.f_blow.loc[("w_wv", 100)])
+    NUM["anim_hires_max_blow_w_wv_upto33"] = float(hg[(hg.plane == "w_wv") & (hg.window_size <= 33)].f_blow.max())
+    NUM["anim_hires_blow_k50_w_wv"] = float(H.f_blow.loc[("w_wv", 50)])
+    (HERE / "table_numbers.json").write_text(json.dumps(NUM, indent=1, default=float))
+(HERE / "table_numbers.json").write_text(json.dumps(NUM, indent=1, default=float))

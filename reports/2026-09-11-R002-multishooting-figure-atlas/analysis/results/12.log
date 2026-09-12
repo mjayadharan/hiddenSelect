@@ -1,0 +1,24 @@
+v_v3      1-ρ=1.22  basin 0.0094->0.00027 (x35.0  ) blow 0.38->0.39 decades 4.34 ->3.67
+v_v2      1-ρ=0.54  basin 0.0177->0.00161 (x11.0  ) blow 0.0 ->0.0  decades 2.35 ->3.01
+v3_v2     1-ρ=0.59  basin 0.0126->0.00215 (x5.9   ) blow 0.34->0.34 decades 4.38 ->4.58
+w_v       1-ρ=0.8   basin 0.0129->0.00107 (x12.0  ) blow 0.0 ->0.0  decades 2.09 ->3.02
+c_w       1-ρ=0.8   basin 0.0126->0.00027 (x47.0  ) blow 0.0 ->0.0  decades 2.2  ->3.13
+wv_ww     1-ρ=0.46  basin 0.0887->0.00027 (x330.0 ) blow 0.0 ->0.28 decades 1.53 ->4.74
+v_wv      1-ρ=0.84  basin 0.0212->0.00027 (x79.0  ) blow 0.0 ->0.0  decades 2.16 ->4.37
+w_wv      1-ρ=0.78  basin 0.0277->0.00027 (x103.0 ) blow 0.0 ->0.0  decades 1.93 ->4.54
+v3_w3     1-ρ=0.87  basin 0.0075->0.00027 (x28.0  ) blow 0.32->0.6  decades 4.71 ->4.31
+v3_vw     1-ρ=0.91  basin 0.0164->0.00081 (x20.3  ) blow 0.32->0.35 decades 4.55 ->4.59
+c_wc      1-ρ=0.62  basin 0.0371->0.00027 (x138.0 ) blow 0.0 ->0.0  decades 2.15 ->2.82
+v2_w2     1-ρ=0.77  basin 0.0312->0.00161 (x19.3  ) blow 0.0 ->0.57 decades 2.17 ->4.75
+vw_v2w    1-ρ=0.68  basin 0.0357->0.00081 (x44.3  ) blow 0.0 ->0.35 decades 2.29 ->3.67
+v_w3      1-ρ=0.76  basin 0.0188->0.00027 (x70.0  ) blow 0.0 ->0.13 decades 2.04 ->3.22
+w_w3      1-ρ=0.63  basin 0.0806->0.00054 (x150.0 ) blow 0.0 ->0.15 decades 1.93 ->3.47
+v2_v2w    1-ρ=0.73  basin 0.0355->0.00188 (x18.9  ) blow 0.0 ->0.29 decades 2.5  ->3.7
+screen done: 16 planes x 16 κ at 61x61
+grid v_v3: 201x201x16 in 198.7 s
+grid wv_ww: 201x201x16 in 231.6 s
+grid w_wv: 201x201x16 in 222.0 s
+grid v3_w3: 201x201x16 in 205.6 s
+grid v2_w2: 201x201x16 in 216.1 s
+LV x2_xy hi-res: 201x201x16 in 202.1 s
+12 done

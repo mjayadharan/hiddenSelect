@@ -1,0 +1,18 @@
+{
+  "x2_xy": {
+  "col_a": "dp_x2",
+  "col_b": "dp_xy",
+  "file": "anim_lv_landscape_x2_xy_hires.csv.gz",
+  "label_a": "coefficient of $x^2$ in $\\dot x$",
+  "label_b": "coefficient of $xy$ in $\\dot x$",
+  "n": 201,
+  "p_index_a": 6,
+  "p_index_b": 5,
+  "seed": 1,
+  "system": "lv",
+  "truth_a": 0.0,
+  "truth_b": -0.5,
+  "z_index_a": 8,
+  "z_index_b": 7
+}
+}

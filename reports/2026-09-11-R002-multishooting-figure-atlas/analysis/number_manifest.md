@@ -168,6 +168,27 @@ Each entry: the value as computed now from analysis/results/, its type, source f
 | hess_nneg_k100 | 5 | result_value | result_value: hessian_at_ptrue.csv | yes |
 | minima_k1 | 1.25 | result_value | result_value: landscape_1d_minima.csv | yes |
 | minima_k100 | 7.91667 | result_value | result_value: landscape_1d_minima.csv | yes |
+| anim_rank_decorr_v_v3 | 1.22143 | result_value | result_value | yes |
+| anim_decades_k1_wv_ww | 1.52907 | result_value | result_value | yes |
+| anim_decades_k100_wv_ww | 4.73999 | result_value | result_value | yes |
+| anim_decades_k1_v2_w2 | 2.17333 | result_value | result_value | yes |
+| anim_decades_k100_v2_w2 | 4.75411 | result_value | result_value | yes |
+| anim_decades_k1_w_wv | 1.93238 | result_value | result_value | yes |
+| anim_decades_k100_w_wv | 4.54498 | result_value | result_value | yes |
+| anim_decades_k1_v3_w3 | 4.70649 | result_value | result_value | yes |
+| anim_blow_k100_v2_w2 | 0.567589 | result_value | result_value | yes |
+| anim_blow_k1_v3_w3 | 0.320613 | result_value | result_value | yes |
+| anim_blow_k100_v3_w3 | 0.602526 | result_value | result_value | yes |
+| anim_n_planes_screened | 16 | result_value | result_value | yes |
+| anim_n_planes_animated | 5 | result_value | result_value | yes |
+| anim_n_censored_at_k100_screen | 8 | result_value | result_value | yes |
+| screen_floor_frac | 0.000268745 | result_value | result_value | yes |
+| anim_hires_basin_k1_wv_ww | 0.0894285 | result_value | result_value | yes |
+| anim_hires_basin_k100_wv_ww | 4.95037e-05 | result_value | result_value | yes |
+| anim_hires_blow_k75_w_wv | 0.00158412 | result_value | result_value | yes |
+| anim_hires_blow_k100_w_wv | 0.0027227 | result_value | result_value | yes |
+| anim_hires_max_blow_w_wv_upto33 | 0 | result_value | result_value | yes |
+| anim_hires_blow_k50_w_wv | 2.47519e-05 | result_value | result_value | yes |
 
 Result-class keys not found verbatim in report.tex (rounded differently or not quoted): 16
 

@@ -70,5 +70,13 @@
  "G18_T1_reproduces": {
   "pass": true,
   "detail": "median \u2016p\u2212p*\u2016 per \u03ba recomputed = tables/T1_headline.csv"
+ },
+ "G19_extended_landscape_animations_present": {
+  "pass": true,
+  "detail": "16 candidate planes screened, 5 animated; 6 2-D + 4 3-D MP4s; missing/empty: []"
+ },
+ "G20_landscape_geometry_recomputes_from_grids": {
+  "pass": true,
+  "detail": "96 (plane, kappa) cells re-derived from the shipped grids; lv_x2_xy: 201x201x16 ok; v2_w2: 201x201x16 ok; v3_w3: 201x201x16 ok; v_v3: 201x201x16 ok; w_wv: 201x201x16 ok; wv_ww: 201x201x16 ok"
  }
 }
