@@ -55,7 +55,8 @@ $PY figures/make_landscape_animations.py 2d       # six 1440p 2-D landscape MP4s
                                     # tables/make_tables.py after this line, before pdflatex.
 $PY figures/make_landscape_animations.py 3d       # four rotating 3-D landscape MP4s (~10 min each;
                                     # they are independent, so run the four in parallel)
-$PY figures/make_landscape_animations.py 3d-control wv_ww   # the slow-block 3-D landscape with the
+$PY figures/make_landscape_animations.py 3d-control wv_ww   # three camera elevations (low/mid/high)
+                                    # of the slow-block 3-D landscape with the
                                     # guess-propagation path removed (control arm only), ~10 min.
                                     # `3d-min wv_ww` renders the argmin-of-the-plane variant instead;
                                     # it is not shipped (the marker sits on the truth star at every κ).

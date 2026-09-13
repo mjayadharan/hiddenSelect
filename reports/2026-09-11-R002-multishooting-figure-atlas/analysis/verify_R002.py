@@ -101,7 +101,8 @@ FULL_LADDER = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 33, 50, 75, 100]
 ANIM2D = [f"anim_fhn_landscape_{k}_hires.mp4" for k in ("v_v3", "wv_ww", "v2_w2", "w_wv", "v3_w3")] + \
          ["anim_lv_landscape_x2_xy_hires.mp4"]
 ANIM3D = [f"anim3d_fhn_landscape_{k}.mp4" for k in ("wv_ww", "v2_w2", "v_v3")] + \
-         ["anim3d_lv_landscape_x2_xy.mp4", "anim3d_fhn_landscape_wv_ww_control.mp4"]
+         ["anim3d_lv_landscape_x2_xy.mp4"] + \
+         [f"anim3d_fhn_landscape_wv_ww_control{v}.mp4" for v in ("_low", "", "_high")]
 if (RES / "landscape_plane_screen_summary.csv").exists():
     sc = rd("landscape_plane_screen_summary.csv")
     missing_mp4 = [f for f in ANIM2D + ANIM3D

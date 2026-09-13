@@ -46,8 +46,13 @@ def short(lab):
     """Axis label trimmed for the cramped 3-D axes."""
     return lab.replace("coefficient of ", "").replace("constant in ", "const. of ")
 
+def nK(k):
+    """Number of shooting windows (= number of nodes) for window size kappa: K = ceil(100/kappa).
+    Both systems here have N = 101 samples, hence 100 data intervals."""
+    return int(np.ceil(100 / k))
+
 def nwin(k):
-    n = int(np.ceil(100 / k))
+    n = nK(k)
     return f"{n} window" + ("s" if n > 1 else "")
 
 # Blues_r truncated at 0.92 so the high-cost end never reaches pure white (invisible in 3-D)
@@ -186,7 +191,7 @@ def render2d(key, m):
 # bulk of the plane) owns most of the vertical axis and flattens the valley that is the subject of
 # the picture. Clipped cells are drawn grey and named in the title; no cost value is altered
 # anywhere except in the height and colour of this one surface.
-def render3d(key, m, mode="arms"):
+def render3d(key, m, mode="arms", elev=32, tag=""):
     """mode="arms": overlay the GP and control minimiser paths (the default).
     mode="control": ONLY the no-propagation arm -- the minimiser the optimiser returns at each
     kappa when every stage restarts from the same seed. This is what the method does BEFORE guess
@@ -206,7 +211,7 @@ def render3d(key, m, mode="arms"):
     zbase = zfloor - 0.30 * (zceil - zfloor)          # height of the projected contour floor
     norm = Normalize(vmin=zfloor, vmax=zceil)
     sysname = "FitzHugh–Nagumo" if m["system"] == "fhn" else "Lotka–Volterra"
-    d = frames_dir(f"ls3d_{key}" + ("" if mode == "arms" else f"_{mode}"))
+    d = frames_dir(f"ls3d_{key}" + ("" if mode == "arms" else f"_{mode}") + tag)
     jmins = np.array([J[i][J[i] < BLOW].min() for i in range(len(FULL))])
     perr = None
     if mode == "control":      # full-dimensional parameter error of the no-propagation arm
@@ -255,57 +260,63 @@ def render3d(key, m, mode="arms"):
                 zs = [surface_z(X, Y, J[i], a, b, zfloor, zceil) + 0.02 * (zceil - zfloor)
                       for a, b in zip(Q.a, Q.b)]
                 ax.plot(Q.a, Q.b, [zbase] * len(Q), "-", color=ARM[arm], lw=0.8, alpha=0.4, zorder=1)
-                lab = (rf"minimiser at each $\kappa$, no guess propagation (seed {m['seed']})"
+                lab = (rf"minimiser at each $K$, no guess propagation (seed {m['seed']})"
                        if mode == "control" else ARM_LABEL[arm] + f" (seed {m['seed']})")
                 ax.plot(Q.a, Q.b, zs, "-o", color=ARM[arm], ms=2.8, lw=1.3, zorder=6, label=lab)
                 ax.plot([Q.a.iloc[-1]], [Q.b.iloc[-1]], [zs[-1]], "o", color=ARM[arm], ms=6.5,
                         mec="white", mew=0.9, ls="none", zorder=9)
             ax.set_xlim(X.min(), X.max()); ax.set_ylim(Y.min(), Y.max()); ax.set_zlim(zbase, zceil)
-            ax.set_box_aspect((1.38, 1.18, 0.74), zoom=1.02)
-            ax.view_init(elev=32, azim=-60 + 360.0 * f / total)
+            ax.set_box_aspect((1.38, 1.18, 0.74), zoom=1.02 if elev < 45 else 0.90)
+            ax.view_init(elev=elev, azim=-60 + 360.0 * f / total)
             ax.set_xlabel(short(m["label_a"]), fontsize=7.5, labelpad=2)
             ax.set_ylabel(short(m["label_b"]), fontsize=7.5, labelpad=2)
-            ax.set_zlabel(r"$\log_{10} J_\kappa$ (clipped)", fontsize=7.5, labelpad=-4)
-            ax.tick_params(labelsize=6, pad=-1)
+            ax.set_zlabel((r"$\log_{10} J$ (clipped)" if mode == "control"
+                           else r"$\log_{10} J_\kappa$ (clipped)"), fontsize=7.5, labelpad=-4)
+            ax.tick_params(labelsize=6, pad=(2 if elev >= 45 else -1))
             for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
                 axis.pane.set_facecolor("white"); axis.pane.set_alpha(1.0)
                 axis._axinfo["grid"]["color"] = "#EAEAEA"
-            fig.suptitle(rf"{sysname} cost landscape $J_\kappa$ at $\kappa$ = {k}  ({nwin(k)})",
-                         fontsize=10.5, y=0.975)
-            fig.text(0.5, 0.925, r"surface $=\log_{10}J_\kappa$ clipped at the 99.5th percentile of the "
-                                 r"finite costs; grey mesa $=$ blow-up plateau ($J_\kappa\geq10^3$)",
+            title = (rf"{sysname} cost landscape at $K$ = {nK(k)} {'windows' if nK(k) > 1 else 'window'}"
+                     rf"   (window size $\kappa$ = {k})" if mode == "control"
+                     else rf"{sysname} cost landscape $J_\kappa$ at $\kappa$ = {k}  ({nwin(k)})")
+            fig.suptitle(title, fontsize=10.5, y=0.975)
+            jsym = "J" if mode == "control" else r"J_\kappa"
+            fig.text(0.5, 0.925, rf"surface $=\log_{{10}}{jsym}$ clipped at the 99.5th percentile of the "
+                                 rf"finite costs; grey mesa $=$ blow-up plateau (${jsym}\geq10^3$)",
                      ha="center", fontsize=7, color=MUTED)
             h, lb = ax.get_legend_handles_labels()
             fig.legend(h, lb, fontsize=7, loc="lower left", bbox_to_anchor=(0.005, 0.03), frameon=False)
-            fig.text(0.005, 0.885,
-                     "\n".join([rf"$\kappa$ = {k}   ({nwin(k)})",
-                                 rf"basin ($J<2J_\min$): {ba[i]*100:.3g} % of the plane",
-                                 rf"blow-up plateau: {fb[i]*100:.3g} % of the plane",
-                                 rf"$J_\kappa^{{\min}}$ = {J[i][J[i] < BLOW].min():.4g}",
-                                 rf"$J_\kappa$ at $p^\star$ = {J[i][it]:.4g}"]
-                                + ([rf"$\|p^{{(\kappa)}}-p^\star\|$ = {perr[i]:.3f}   (starting guess: {seed_perr:.3f})"]
-                                   if mode == "control" else [])
-                                + ([rf"$\arg\min_\Pi J_\kappa$ = ({amin[0]:.3f}, {amin[1]:.3f})",
-                                    rf"distance to $p^\star$ = {np.hypot(amin[0]-m['truth_a'], amin[1]-m['truth_b']):.3f}"]
-                                   if mode == "minimum" else [])),
+            if mode == "control":
+                lines = [rf"$K$ = {nK(k)} {'windows' if nK(k) > 1 else 'window'}  (nodes)",
+                         rf"window size $\kappa$ = {k}",
+                         rf"basin ($J<2J_{{\min}}$): {ba[i]*100:.3g} % of the plane",
+                         rf"blow-up plateau: {fb[i]*100:.3g} % of the plane",
+                         rf"$J$ at $p^\star$ = {J[i][it]:.4g}",
+                         rf"$\|p^{{(K)}}-p^\star\|$ = {perr[i]:.3f}   (starting guess: {seed_perr:.3f})"]
+            else:
+                lines = [rf"$\kappa$ = {k}   ({nwin(k)})",
+                         rf"basin ($J<2J_\min$): {ba[i]*100:.3g} % of the plane",
+                         rf"blow-up plateau: {fb[i]*100:.3g} % of the plane",
+                         rf"$J_\kappa^{{\min}}$ = {J[i][J[i] < BLOW].min():.4g}",
+                         rf"$J_\kappa$ at $p^\star$ = {J[i][it]:.4g}"]
+                if mode == "minimum":
+                    lines += [rf"$\arg\min_\Pi J_\kappa$ = ({amin[0]:.3f}, {amin[1]:.3f})",
+                              rf"distance to $p^\star$ = {np.hypot(amin[0]-m['truth_a'], amin[1]-m['truth_b']):.3f}"]
+            fig.text(0.005, 0.885, "\n".join(lines),
                      fontsize=7.5, va="top", ha="left", color=INK, linespacing=1.9)
-            if mode in ("minimum", "control"):
+            if mode == "minimum":
                 a2 = fig.add_axes([0.080, 0.345, 0.092, 0.205])
-                yv = jmins if mode == "minimum" else perr
+                yv = jmins
                 a2.plot(FULL, yv, color=VERMILION, lw=1.1, alpha=0.3)
                 a2.plot(FULL[:i+1], yv[:i+1], color=VERMILION, lw=1.5, marker="o", ms=2.2)
                 a2.plot(k, yv[i], "o", color=VERMILION, ms=5.5, mec="white", mew=0.9)
                 a2.set_xscale("log"); a2.set_yscale("log")
-                if mode == "control":      # the guess every stage restarts from
-                    a2.axhline(seed_perr, color=GREY, lw=0.8, ls="--", alpha=0.8)
-                    a2.text(1.05, seed_perr, "seed", fontsize=5, color=GREY, va="bottom")
                 a2.set_ylim(yv.min() * 0.8, yv.max() * 1.25)
                 a2.set_yticks([float(f"{v:.2g}") for v in np.geomspace(yv.min(), yv.max(), 3)])
                 a2.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:g}"))
                 a2.yaxis.set_minor_formatter(plt.NullFormatter())
                 a2.tick_params(labelsize=5.5, pad=1)
-                a2.set_ylabel(r"$J_\kappa^{\min}$" if mode == "minimum"
-                              else r"$\|p^{(\kappa)}-p^\star\|$", fontsize=7.5, labelpad=1)
+                a2.set_ylabel(r"$J_\kappa^{\min}$", fontsize=7.5, labelpad=1)
                 a2.set_xlabel(r"window size $\kappa$", fontsize=6, labelpad=1)
                 cax = fig.add_axes([0.080, 0.245, 0.092, 0.011])     # horizontal, under the panel
                 orient = "horizontal"
@@ -313,13 +324,14 @@ def render3d(key, m, mode="arms"):
                 cax = fig.add_axes([0.032, 0.24, 0.012, 0.29]); orient = "vertical"
             sm = ScalarMappable(norm=norm, cmap=CMAP); sm.set_array([])
             cb = fig.colorbar(sm, cax=cax, orientation=orient)
-            cb.set_label(r"$\log_{10} J_\kappa$", fontsize=7); cb.ax.tick_params(labelsize=6)
+            cb.set_label(r"$\log_{10} J$" if mode == "control" else r"$\log_{10} J_\kappa$",
+                         fontsize=7); cb.ax.tick_params(labelsize=6)
             if orient == "vertical":
                 cax.yaxis.set_ticks_position("left"); cax.yaxis.set_label_position("left")
             savef(fig, d, f); f += 1
         print(f"  {key} 3-D: kappa={k} ({f}/{total} frames)", flush=True)
     encode(d, OUT / (f"anim3d_{'fhn' if m['system']=='fhn' else 'lv'}_landscape_{key.replace('lv_','')}"
-                     + ("" if mode == "arms" else f"_{mode}") + ".mp4"), 24)
+                     + ("" if mode == "arms" else f"_{mode}") + tag + ".mp4"), 24)
 
 # ------------------------------------------------------------------ main ------
 
@@ -336,11 +348,22 @@ if __name__ == "__main__":
     if what in ("3d", "all"):
         for key in (rest or PLANES_3D):
             print("3-D:", key, flush=True); render3d(key, M[key])
-    for w, md, desc in (("3d-min", "minimum", "plane minimum, no optimiser paths"),
-                        ("3d-control", "control", "no-propagation arm only")):
-        if what == w:
-            for key in (rest or ["wv_ww"]):
-                print(f"3-D ({desc}):", key, flush=True); render3d(key, M[key], mode=md)
+    # camera elevations for the control cut: grazing (canyon profile), the default oblique view,
+    # and near-overhead (the floor contour projection fully visible)
+    CONTROL_VIEWS = [("_low", 14), ("", 32), ("_high", 62)]
+    if what == "3d-min":
+        for key in (rest or ["wv_ww"]):
+            print("3-D (plane minimum, no optimiser paths):", key, flush=True)
+            render3d(key, M[key], mode="minimum")
+    if what == "3d-control":
+        views = CONTROL_VIEWS
+        if rest and rest[-1] in [t.lstrip("_") or "mid" for t, _ in CONTROL_VIEWS]:
+            sel = rest.pop()
+            views = [v for v in CONTROL_VIEWS if (v[0].lstrip("_") or "mid") == sel]
+        for key in (rest or ["wv_ww"]):
+            for tag, elev in views:
+                print(f"3-D (no-propagation arm only, elev {elev}):", key, flush=True)
+                render3d(key, M[key], mode="control", elev=elev, tag=tag)
     if GEOM:
         # the basin/plateau numbers quoted in the report come from THIS grid, not the 61x61 screen
         g = pd.DataFrame(GEOM).drop_duplicates(["plane", "window_size"])

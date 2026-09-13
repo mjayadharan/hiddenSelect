@@ -73,7 +73,7 @@
  },
  "G19_extended_landscape_animations_present": {
   "pass": true,
-  "detail": "16 candidate planes screened, 5 animated; 6 2-D + 5 3-D MP4s; missing/empty: []"
+  "detail": "16 candidate planes screened, 5 animated; 6 2-D + 7 3-D MP4s; missing/empty: []"
  },
  "G20_landscape_geometry_recomputes_from_grids": {
   "pass": true,
