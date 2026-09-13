@@ -191,11 +191,17 @@ def render2d(key, m):
 # bulk of the plane) owns most of the vertical axis and flattens the valley that is the subject of
 # the picture. Clipped cells are drawn grey and named in the title; no cost value is altered
 # anywhere except in the height and colour of this one surface.
-def render3d(key, m, mode="arms", elev=32, tag="", index="kappa"):
+def render3d(key, m, mode="arms", elev=32, tag="", index="kappa", info=True, stop_K=None):
     """mode="arms": overlay the GP and control minimiser paths (the default).
     mode="control": ONLY the no-propagation arm -- the minimiser the optimiser returns at each
     kappa when every stage restarts from the same seed. This is what the method does BEFORE guess
     propagation is introduced.
+    stop_K=n ends the animation at the FIRST stage whose window count K = ceil(100/kappa) reaches n,
+    instead of running the ladder out to kappa = 100 (K = 1, single shooting). K is not injective on
+    this ladder -- kappa = 50 and 75 both give K = 2 -- so stop_K=2 ends at kappa = 50 and drops
+    kappa = 75 (a second K = 2) and kappa = 100.
+    info=False drops the per-frame readout block in the left gutter (K/kappa, basin, plateau, J at
+    p*), leaving the title to carry the stage. The title still prints both K and kappa.
     mode="minimum": no optimiser paths at all -- mark the minimum of the DRAWN plane, argmin
     J_kappa. Note "minimum" and "control" are different objects: argmin J_kappa is the best point of
     a slice whose other 18 coefficients are pinned at truth, so it sits on the truth star at every
@@ -214,6 +220,7 @@ def render3d(key, m, mode="arms", elev=32, tag="", index="kappa"):
     sysname = "FitzHugh–Nagumo" if m["system"] == "fhn" else "Lotka–Volterra"
     d = frames_dir(f"ls3d_{key}" + ("" if mode == "arms" else f"_{mode}") + tag)
     jmins = np.array([J[i][J[i] < BLOW].min() for i in range(len(FULL))])
+    ladder = FULL if stop_K is None else FULL[:next(i for i, kk in enumerate(FULL) if nK(kk) <= stop_K) + 1]
     perr = None
     if mode == "control":      # full-dimensional parameter error of the no-propagation arm
         sw = read_csv("sweeps.csv" if m["system"] == "fhn" else "other_sweeps.csv")
@@ -221,9 +228,9 @@ def render3d(key, m, mode="arms", elev=32, tag="", index="kappa"):
         sw = sw[sw.exp == "main"] if m["system"] == "fhn" else sw[sw.system == "lv"]
         perr = np.array([float(sw[sw.window_size == k].p_err.iloc[0]) for k in FULL])
         seed_perr = float(sw.seed_p_err.iloc[0])   # the shared starting guess, NOT the kappa=1 result
-    n_hold = [2 * SUB] + [SUB] * (len(FULL) - 2) + [2 * SUB]
+    n_hold = [2 * SUB] + [SUB] * (len(ladder) - 2) + [2 * SUB]
     total = sum(n_hold); f = 0
-    for i, k in enumerate(FULL):
+    for i, k in enumerate(ladder):
         Zc = np.log10(np.clip(J[i], vmin, vmax))       # clipped display surface
         blown = J[i] >= BLOW
         fc = CMAP(norm(Zc)); fc[blown] = mcolors.to_rgba(PLATEAU)
@@ -287,31 +294,32 @@ def render3d(key, m, mode="arms", elev=32, tag="", index="kappa"):
                      ha="center", fontsize=7, color=MUTED)
             h, lb = ax.get_legend_handles_labels()
             fig.legend(h, lb, fontsize=7, loc="lower left", bbox_to_anchor=(0.005, 0.03), frameon=False)
-            if index == "K":
-                lines = [rf"$K$ = {nK(k)} {'windows' if nK(k) > 1 else 'window'}  (nodes)",
-                         rf"window size $\kappa$ = {k}",
-                         rf"basin ($J<2J_{{\min}}$): {ba[i]*100:.3g} % of the plane",
-                         rf"blow-up plateau: {fb[i]*100:.3g} % of the plane",
-                         rf"$J$ at $p^\star$ = {J[i][it]:.4g}"]
-                if mode == "control":
-                    lines += [rf"$\|p^{{(K)}}-p^\star\|$ = {perr[i]:.3f}   "
-                              rf"(starting guess: {seed_perr:.3f})"]
-            else:
-                lines = [rf"$\kappa$ = {k}   ({nwin(k)})",
-                         rf"basin ($J<2J_\min$): {ba[i]*100:.3g} % of the plane",
-                         rf"blow-up plateau: {fb[i]*100:.3g} % of the plane",
-                         rf"$J_\kappa^{{\min}}$ = {J[i][J[i] < BLOW].min():.4g}",
-                         rf"$J_\kappa$ at $p^\star$ = {J[i][it]:.4g}"]
-                if mode == "minimum":
-                    lines += [rf"$\arg\min_\Pi J_\kappa$ = ({amin[0]:.3f}, {amin[1]:.3f})",
-                              rf"distance to $p^\star$ = {np.hypot(amin[0]-m['truth_a'], amin[1]-m['truth_b']):.3f}"]
-            fig.text(0.005, 0.885, "\n".join(lines),
-                     fontsize=7.5, va="top", ha="left", color=INK, linespacing=1.9)
+            if info:
+                if index == "K":
+                    lines = [rf"$K$ = {nK(k)} {'windows' if nK(k) > 1 else 'window'}  (nodes)",
+                             rf"window size $\kappa$ = {k}",
+                             rf"basin ($J<2J_{{\min}}$): {ba[i]*100:.3g} % of the plane",
+                             rf"blow-up plateau: {fb[i]*100:.3g} % of the plane",
+                             rf"$J$ at $p^\star$ = {J[i][it]:.4g}"]
+                    if mode == "control":
+                        lines += [rf"$\|p^{{(K)}}-p^\star\|$ = {perr[i]:.3f}   "
+                                  rf"(starting guess: {seed_perr:.3f})"]
+                else:
+                    lines = [rf"$\kappa$ = {k}   ({nwin(k)})",
+                             rf"basin ($J<2J_\min$): {ba[i]*100:.3g} % of the plane",
+                             rf"blow-up plateau: {fb[i]*100:.3g} % of the plane",
+                             rf"$J_\kappa^{{\min}}$ = {J[i][J[i] < BLOW].min():.4g}",
+                             rf"$J_\kappa$ at $p^\star$ = {J[i][it]:.4g}"]
+                    if mode == "minimum":
+                        lines += [rf"$\arg\min_\Pi J_\kappa$ = ({amin[0]:.3f}, {amin[1]:.3f})",
+                                  rf"distance to $p^\star$ = {np.hypot(amin[0]-m['truth_a'], amin[1]-m['truth_b']):.3f}"]
+                fig.text(0.005, 0.885, "\n".join(lines),
+                         fontsize=7.5, va="top", ha="left", color=INK, linespacing=1.9)
             if mode == "minimum":
                 a2 = fig.add_axes([0.080, 0.345, 0.092, 0.205])
-                yv = jmins
-                a2.plot(FULL, yv, color=VERMILION, lw=1.1, alpha=0.3)
-                a2.plot(FULL[:i+1], yv[:i+1], color=VERMILION, lw=1.5, marker="o", ms=2.2)
+                yv = jmins[:len(ladder)]
+                a2.plot(ladder, yv, color=VERMILION, lw=1.1, alpha=0.3)
+                a2.plot(ladder[:i+1], yv[:i+1], color=VERMILION, lw=1.5, marker="o", ms=2.2)
                 a2.plot(k, yv[i], "o", color=VERMILION, ms=5.5, mec="white", mew=0.9)
                 a2.set_xscale("log"); a2.set_yscale("log")
                 a2.set_ylim(yv.min() * 0.8, yv.max() * 1.25)
@@ -361,7 +369,7 @@ if __name__ == "__main__":
     if what == "3d-arms-low":      # both arms, grazing camera, indexed by K (the 2-D hires content)
         for key in (rest or ["wv_ww"]):
             print("3-D (both arms, elev 14, K-indexed):", key, flush=True)
-            render3d(key, M[key], mode="arms", elev=14, tag="_low", index="K")
+            render3d(key, M[key], mode="arms", elev=14, tag="_low", index="K", info=False, stop_K=2)
     if what == "3d-control":
         views = CONTROL_VIEWS
         if rest and rest[-1] in [t.lstrip("_") or "mid" for t, _ in CONTROL_VIEWS]:
