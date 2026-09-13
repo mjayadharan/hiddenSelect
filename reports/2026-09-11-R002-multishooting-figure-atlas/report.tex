@@ -33,7 +33,7 @@
 \maketitle
 
 \begin{abstract}
-\noindent This atlas collects, in presentation order, every figure produced for the \texttt{hiddenSelect} project (Julia; multiple shooting with guess propagation for discovering sparse polynomial governing equations from noisy trajectories; theory manuscript \emph{Sparse Optimization using Multi-Shooting and Guess Propagation}). It contains: (i) seven concept figures that replace the manuscript's hand-drawn sketches (the inverse problem, single shooting, the shooting partition, multiple shooting, node removal, the guess-propagation algorithm, and the error-growth picture); (ii) numerical checks of Lemma~1, Lemma~2 and Proposition~1 of the manuscript on the FitzHugh--Nagumo (FHN) system; (iii) cost-landscape figures showing how the number of local minima, the Hessian spread and the blow-up region grow with the window size; (iv) the headline experiment --- guess propagation versus restarting from the seed --- over 8 optimiser seeds with paired bootstrap confidence intervals, plus variations of the window-size schedule, blow-up penalty, noise level, sparsity weight, optimiser, iteration budget, integrator sub-steps and start distance; (v) an integrator/solver comparison; (vi) the quantification of the defects reported in the code review R001 (F1, F2, F4, F5) and of two \emph{new} defects found here (a mixed monomial ordering in the current driver and a global-variable shadowing in the single-shooting loss), all fixed in the live tree with this report; (vii) the same method on Lotka--Volterra and Lorenz. Every number in every caption is computed by scripts in this folder from a frozen code snapshot and asserted by 20 gates (\S\ref{sec:gates}); twenty-two MP4 animations (including a screened set of five FHN cost-landscape planes at $201\times201$ and four rotating 3-D landscapes, \S\ref{sec:anim2}) and a slide deck are shipped alongside. Headline: with guess propagation the median parameter error over seeds falls from $1.65$ (seed) to $0.32$ at full single shooting, while the same optimiser without propagation stays at the seed ($1.65$) --- paired difference $-1.14$, 95\,\% bootstrap CI $[-1.43,-0.77]$, better in 7 of 8 seeds (the eighth seed starts on the blow-up plateau, where nothing can move; a graded penalty fixes that).
+\noindent This atlas collects, in presentation order, every figure produced for the \texttt{hiddenSelect} project (Julia; multiple shooting with guess propagation for discovering sparse polynomial governing equations from noisy trajectories; theory manuscript \emph{Sparse Optimization using Multi-Shooting and Guess Propagation}). It contains: (i) seven concept figures that replace the manuscript's hand-drawn sketches (the inverse problem, single shooting, the shooting partition, multiple shooting, node removal, the guess-propagation algorithm, and the error-growth picture); (ii) numerical checks of Lemma~1, Lemma~2 and Proposition~1 of the manuscript on the FitzHugh--Nagumo (FHN) system; (iii) cost-landscape figures showing how the number of local minima, the Hessian spread and the blow-up region grow with the window size; (iv) the headline experiment --- guess propagation versus restarting from the seed --- over 8 optimiser seeds with paired bootstrap confidence intervals, plus variations of the window-size schedule, blow-up penalty, noise level, sparsity weight, optimiser, iteration budget, integrator sub-steps and start distance; (v) an integrator/solver comparison; (vi) the quantification of the defects reported in the code review R001 (F1, F2, F4, F5) and of two \emph{new} defects found here (a mixed monomial ordering in the current driver and a global-variable shadowing in the single-shooting loss), all fixed in the live tree with this report; (vii) the same method on Lotka--Volterra and Lorenz. Every number in every caption is computed by scripts in this folder from a frozen code snapshot and asserted by 20 gates (\S\ref{sec:gates}); twenty-three MP4 animations (including a screened set of five FHN cost-landscape planes at $201\times201$ and four rotating 3-D landscapes, \S\ref{sec:anim2}) and a slide deck are shipped alongside. Headline: with guess propagation the median parameter error over seeds falls from $1.65$ (seed) to $0.32$ at full single shooting, while the same optimiser without propagation stays at the seed ($1.65$) --- paired difference $-1.14$, 95\,\% bootstrap CI $[-1.43,-0.77]$, better in 7 of 8 seeds (the eighth seed starts on the blow-up plateau, where nothing can move; a graded penalty fixes that).
 \end{abstract}
 
 \section*{Table of figures}
@@ -110,7 +110,8 @@ Figure & What is plotted & What it demonstrates / how to use it on a slide \\
 \item \texttt{figures/anim\_lv\_landscape\_x2\_xy.mp4}, \texttt{figures/anim\_lv\_landscape\_xy\_xy.mp4} --- the same at $161\times161$ resolution in two more planes: ($x^2$, $xy$) of $\dot x$, where the true-zero quadratic term produces finite-time blow-up (the analogue of the FHN cubic: a smooth diagonal valley at $\kappa=1$ shatters into a thin sliver with secondary minima at $\kappa=100$), and the interaction pair ($xy$ in $\dot x$, $xy$ in $\dot y$), where a round bowl becomes an L-shaped plateau (data: \texttt{anim\_lv\_landscape\_x2\_xy.csv}, \texttt{anim\_lv\_landscape\_xy\_xy.csv}).
 \item \textbf{Extended 2-D landscapes} (\S\ref{sec:anim2}; $201\times201$ grids, 1440p; data \texttt{anim\_fhn\_landscape\_*.csv.gz}, \texttt{anim\_lv\_landscape\_x2\_xy\_hires.csv.gz}, script \texttt{analysis/12\_landscape\_planes.jl}) --- \texttt{anim\_fhn\_landscape\_v\_v3\_hires.mp4} (the Part~C plane at the new resolution), \texttt{..\_wv\_ww\_hires.mp4} ($v$ and $w$ in $\dot w$: the slow block, nearly flat at $\kappa=1$), \texttt{..\_v2\_w2\_hires.mp4} ($v^2$ in $\dot v$ and in $\dot w$: two true zeros, plateau $0\to57\,\%$), \texttt{..\_w\_wv\_hires.mp4} ($w$ in $\dot v$, $v$ in $\dot w$: the feedback pair; sharpens hard but barely blows up --- plateau $0\,\%$ for every $\kappa\le33$, $0.27\,\%$ at $\kappa=100$), \texttt{..\_v3\_w3\_hires.mp4} ($v^3$ in $\dot v$ and in $\dot w$: rugged at both ends), and \texttt{anim\_lv\_landscape\_x2\_xy\_hires.mp4}. Each frame also carries the basin and plateau fractions of that $\kappa$.
 \item \textbf{3-D landscapes} (\S\ref{sec:anim2}; rotating surface $z=\log_{10}J_\kappa$, one full turn over 288 frames) --- \texttt{anim3d\_fhn\_landscape\_wv\_ww.mp4}, \texttt{anim3d\_fhn\_landscape\_v2\_w2.mp4}, \texttt{anim3d\_fhn\_landscape\_v\_v3.mp4} and \texttt{anim3d\_lv\_landscape\_x2\_xy.mp4}. The surface is clipped at the 99.5th percentile of the finite costs for display; see the display convention in \S\ref{sec:anim2}.
-\item \textbf{3-D landscape without guess propagation}, three camera elevations --- \texttt{anim3d\_fhn\_landscape\_wv\_ww\_control\_low.mp4} ($14^\circ$, grazing: the canyon profile and the height of the blow-up wall), \texttt{..\_control.mp4} ($32^\circ$, oblique) and \texttt{..\_control\_high.mp4} ($62^\circ$, near-overhead: the footprint of the canyon and of the plateau). Each is the slow-block surface of \texttt{anim3d\_fhn\_landscape\_wv\_ww.mp4} with the guess-propagation path removed, leaving only the minimiser the optimiser returns when every stage restarts from the same seed --- what the method does \emph{before} guess propagation is introduced. These three are the only animations indexed by $K$ (the number of windows) rather than by $\kappa$; see \S\ref{sec:anim2}.
+\item \textbf{3-D landscape, both arms, grazing camera} --- \texttt{anim3d\_fhn\_landscape\_wv\_ww\_low.mp4}: the slow-block plane of \texttt{anim\_fhn\_landscape\_wv\_ww\_hires.mp4} carried into 3-D at the $14^\circ$ elevation, with both the guess-propagation and the control path and \emph{without} the basin/plateau side panels of the 2-D version. Indexed by $K$.
+\item \textbf{3-D landscape without guess propagation}, three camera elevations --- \texttt{anim3d\_fhn\_landscape\_wv\_ww\_control\_low.mp4} ($14^\circ$, grazing: the canyon profile and the height of the blow-up wall), \texttt{..\_control.mp4} ($32^\circ$, oblique) and \texttt{..\_control\_high.mp4} ($62^\circ$, near-overhead: the footprint of the canyon and of the plateau). Each is the slow-block surface of \texttt{anim3d\_fhn\_landscape\_wv\_ww.mp4} with the guess-propagation path removed, leaving only the minimiser the optimiser returns when every stage restarts from the same seed --- what the method does \emph{before} guess propagation is introduced. See \S\ref{sec:anim2} for the $K$ indexing these carry.
 \end{itemize}
 A slide deck telling the story in 8 slides is in \texttt{slides/multishooting\_story.pptx} (built by \texttt{slides/make\_deck.py} from these figures and \texttt{tables/table\_numbers.json}). Every figure exists as PDF and PNG under \texttt{figures/}.
 
@@ -494,23 +495,34 @@ clip changes the \emph{height and colour of this one drawn surface} only: no cos
 anywhere else in this report, the 2-D animations are unclipped, and the plateau is still identified by
 colour and named in every frame's subtitle.}
 
-\subsection{The same plane without guess propagation, indexed by $K$}
+\subsection{Cuts indexed by $K$, the number of windows}\label{sec:Kcuts}
+Four of the slow-block animations are indexed by $K$ rather than by $\kappa$, and are the only ones in this
+report that are: \texttt{anim3d\_fhn\_landscape\_wv\_ww\_low.mp4} (both arms, $14^\circ$) and the three
+control cuts described next.
+
+\readthis{\textbf{$K$ is the number of shooting windows}, equivalently the number of shooting nodes,
+$K=\lceil 100/\kappa\rceil$ on this $N=101$ record; the nodes are the left endpoints of the windows, and
+every window restarts from the datum at its node. $K$ is the quantity the manuscript's node-removal argument
+is stated in, which is why these cuts carry it. Every other animation and every figure in this report is
+indexed by the window size $\kappa$, and the two run in \emph{opposite} directions: the animations still play
+from $\kappa=1$ to $\kappa=100$, so $K$ counts \emph{down} from $100$ windows (a node at every sample) to $1$
+(single shooting, no interior node). Each frame prints both. The cost is the same $J$ of \S\ref{sec:defs}
+throughout; it is written $J$ rather than $J_\kappa$ in these frames only, to avoid carrying a $\kappa$
+subscript on a picture labelled by $K$.}
+
+\texttt{anim3d\_fhn\_landscape\_wv\_ww\_low.mp4} is the content of the 2-D animation
+\texttt{anim\_fhn\_landscape\_wv\_ww\_hires.mp4} --- the slow-block plane with both the guess-propagation
+and the control path --- rendered as the same grazing-angle 3-D surface as the control cuts below, with the
+2-D version's basin and plateau side panels dropped (both quantities are still printed per frame as numbers).
+At this angle the two arms separate cleanly: the guess-propagation path descends into the funnel and stays
+there, while the control path stays up on the shoulder of the surface throughout.
+
+\subsection{The same plane without guess propagation}
 \texttt{anim3d\_fhn\_landscape\_wv\_ww\_control\_low.mp4}, \texttt{..\_control.mp4} and \texttt{..\_control\_high.mp4} are the slow-block 3-D animation
 with the guess-propagation path deleted: the only trajectory left is the \emph{control} arm, i.e.\ the
 minimiser $p^{(K)}$ the optimiser returns at each stage when every stage restarts from the same seed
 vector rather than from the previous stage's answer. It is the picture of what the window ladder does
 on its own, before guess propagation is introduced.
-
-\readthis{\textbf{These three animations are indexed by $K$, not by $\kappa$.} $K$ is the number of
-shooting windows, equivalently the number of shooting nodes, $K=\lceil 100/\kappa\rceil$ on this
-$N=101$ record; the nodes are the left endpoints of the windows, and every window restarts from the
-datum at its node. $K$ is the quantity the manuscript's node-removal argument is stated in, which is
-why these cuts carry it. Every other animation and every figure in this report is indexed by the
-window size $\kappa$, and the two run in \emph{opposite} directions: the animation still plays from
-$\kappa=1$ to $\kappa=100$, so $K$ counts \emph{down} from $100$ windows (a node at every sample) to
-$1$ (single shooting, no interior node). Each frame prints both. The cost is the same $J$ of
-\S\ref{sec:defs} throughout; it is written $J$ rather than $J_\kappa$ in these frames only, to avoid
-carrying a $\kappa$ subscript on a picture labelled by $K$.}
 
 The surface tightens into a canyon as $K$ falls, exactly as in the two-arm version, but the returned
 minimiser never settles into it: the projected iterate jumps across the plane from one stage to the

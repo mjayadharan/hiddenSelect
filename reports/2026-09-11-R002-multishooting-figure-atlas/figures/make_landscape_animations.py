@@ -191,7 +191,7 @@ def render2d(key, m):
 # bulk of the plane) owns most of the vertical axis and flattens the valley that is the subject of
 # the picture. Clipped cells are drawn grey and named in the title; no cost value is altered
 # anywhere except in the height and colour of this one surface.
-def render3d(key, m, mode="arms", elev=32, tag=""):
+def render3d(key, m, mode="arms", elev=32, tag="", index="kappa"):
     """mode="arms": overlay the GP and control minimiser paths (the default).
     mode="control": ONLY the no-propagation arm -- the minimiser the optimiser returns at each
     kappa when every stage restarts from the same seed. This is what the method does BEFORE guess
@@ -203,6 +203,7 @@ def render3d(key, m, mode="arms", elev=32, tag=""):
     not."""
     ks, X, Y, J = load_grid(m)
     paths = load_paths(m) if mode in ("arms", "control") else {}
+    assert index in ("kappa", "K")
     if mode == "control":
         paths = {"reset": paths["reset"]}
     vmin, vmax = limits(J); fb, ba = scalars(J)
@@ -270,29 +271,31 @@ def render3d(key, m, mode="arms", elev=32, tag=""):
             ax.view_init(elev=elev, azim=-60 + 360.0 * f / total)
             ax.set_xlabel(short(m["label_a"]), fontsize=7.5, labelpad=2)
             ax.set_ylabel(short(m["label_b"]), fontsize=7.5, labelpad=2)
-            ax.set_zlabel((r"$\log_{10} J$ (clipped)" if mode == "control"
+            ax.set_zlabel((r"$\log_{10} J$ (clipped)" if index == "K"
                            else r"$\log_{10} J_\kappa$ (clipped)"), fontsize=7.5, labelpad=-4)
             ax.tick_params(labelsize=6, pad=(2 if elev >= 45 else -1))
             for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
                 axis.pane.set_facecolor("white"); axis.pane.set_alpha(1.0)
                 axis._axinfo["grid"]["color"] = "#EAEAEA"
             title = (rf"{sysname} cost landscape at $K$ = {nK(k)} {'windows' if nK(k) > 1 else 'window'}"
-                     rf"   (window size $\kappa$ = {k})" if mode == "control"
+                     rf"   (window size $\kappa$ = {k})" if index == "K"
                      else rf"{sysname} cost landscape $J_\kappa$ at $\kappa$ = {k}  ({nwin(k)})")
             fig.suptitle(title, fontsize=10.5, y=0.975)
-            jsym = "J" if mode == "control" else r"J_\kappa"
+            jsym = "J" if index == "K" else r"J_\kappa"
             fig.text(0.5, 0.925, rf"surface $=\log_{{10}}{jsym}$ clipped at the 99.5th percentile of the "
                                  rf"finite costs; grey mesa $=$ blow-up plateau (${jsym}\geq10^3$)",
                      ha="center", fontsize=7, color=MUTED)
             h, lb = ax.get_legend_handles_labels()
             fig.legend(h, lb, fontsize=7, loc="lower left", bbox_to_anchor=(0.005, 0.03), frameon=False)
-            if mode == "control":
+            if index == "K":
                 lines = [rf"$K$ = {nK(k)} {'windows' if nK(k) > 1 else 'window'}  (nodes)",
                          rf"window size $\kappa$ = {k}",
                          rf"basin ($J<2J_{{\min}}$): {ba[i]*100:.3g} % of the plane",
                          rf"blow-up plateau: {fb[i]*100:.3g} % of the plane",
-                         rf"$J$ at $p^\star$ = {J[i][it]:.4g}",
-                         rf"$\|p^{{(K)}}-p^\star\|$ = {perr[i]:.3f}   (starting guess: {seed_perr:.3f})"]
+                         rf"$J$ at $p^\star$ = {J[i][it]:.4g}"]
+                if mode == "control":
+                    lines += [rf"$\|p^{{(K)}}-p^\star\|$ = {perr[i]:.3f}   "
+                              rf"(starting guess: {seed_perr:.3f})"]
             else:
                 lines = [rf"$\kappa$ = {k}   ({nwin(k)})",
                          rf"basin ($J<2J_\min$): {ba[i]*100:.3g} % of the plane",
@@ -324,7 +327,7 @@ def render3d(key, m, mode="arms", elev=32, tag=""):
                 cax = fig.add_axes([0.032, 0.24, 0.012, 0.29]); orient = "vertical"
             sm = ScalarMappable(norm=norm, cmap=CMAP); sm.set_array([])
             cb = fig.colorbar(sm, cax=cax, orientation=orient)
-            cb.set_label(r"$\log_{10} J$" if mode == "control" else r"$\log_{10} J_\kappa$",
+            cb.set_label(r"$\log_{10} J$" if index == "K" else r"$\log_{10} J_\kappa$",
                          fontsize=7); cb.ax.tick_params(labelsize=6)
             if orient == "vertical":
                 cax.yaxis.set_ticks_position("left"); cax.yaxis.set_label_position("left")
@@ -339,8 +342,8 @@ PLANES_3D = ["wv_ww", "v2_w2", "v_v3", "lv_x2_xy"]      # the drastic FHN planes
 
 if __name__ == "__main__":
     args = sys.argv[1:]
-    what = args[0] if args and args[0] in ("2d", "3d", "3d-min", "3d-control", "all") else "all"
-    rest = [a for a in args if a not in ("2d", "3d", "3d-min", "3d-control", "all")]
+    what = args[0] if args and args[0] in ("2d", "3d", "3d-min", "3d-control", "3d-arms-low", "all") else "all"
+    rest = [a for a in args if a not in ("2d", "3d", "3d-min", "3d-control", "3d-arms-low", "all")]
     M = meta_all()
     if what in ("2d", "all"):
         for key in (rest or list(M)):
@@ -355,6 +358,10 @@ if __name__ == "__main__":
         for key in (rest or ["wv_ww"]):
             print("3-D (plane minimum, no optimiser paths):", key, flush=True)
             render3d(key, M[key], mode="minimum")
+    if what == "3d-arms-low":      # both arms, grazing camera, indexed by K (the 2-D hires content)
+        for key in (rest or ["wv_ww"]):
+            print("3-D (both arms, elev 14, K-indexed):", key, flush=True)
+            render3d(key, M[key], mode="arms", elev=14, tag="_low", index="K")
     if what == "3d-control":
         views = CONTROL_VIEWS
         if rest and rest[-1] in [t.lstrip("_") or "mid" for t, _ in CONTROL_VIEWS]:
@@ -363,7 +370,7 @@ if __name__ == "__main__":
         for key in (rest or ["wv_ww"]):
             for tag, elev in views:
                 print(f"3-D (no-propagation arm only, elev {elev}):", key, flush=True)
-                render3d(key, M[key], mode="control", elev=elev, tag=tag)
+                render3d(key, M[key], mode="control", elev=elev, tag=tag, index="K")
     if GEOM:
         # the basin/plateau numbers quoted in the report come from THIS grid, not the 61x61 screen
         g = pd.DataFrame(GEOM).drop_duplicates(["plane", "window_size"])
